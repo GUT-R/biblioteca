@@ -2,6 +2,7 @@ from random import choice
 from string import ascii_lowercase, digits
 from datetime import date
 from subprocess import run
+from typing import Iterable, Callable, Any, NoReturn
 
 GLOBAL_DATABASE = {
     'usuarios': [],
@@ -22,23 +23,29 @@ GLOBAL_DATABASE = {
 
 agorinha = date.today
 
-type Titulo = str
-type BibliotecaNome = str
-type ID = str
-type UsuarioID = ID
-type BibliotecaID = ID
-type LivroID = ID
+type Titulo = str         # type: ignore
+type BibliotecaNome = str # type: ignore
+type ID = str             # type: ignore
+type UsuarioID = ID       # type: ignore
+type BibliotecaID = ID    # type: ignore
+type LivroID = ID         # type: ignore
 
 def gerar_id() -> ID:
     return ''.join(choice(ascii_lowercase + digits) for _ in range(8))
+
+
+class EmptyClass:
+    def __init__(self):
+        return None
 
 
 class Usuario:
     def __init__(self, nome: str):
         self.nome = nome
         self.id: UsuarioID = gerar_id()
-        self.livros: set[LivroID] = {}
-        self.bibliotecas: set[BibliotecaID] = {}
+        self.livros: set[LivroID] = set()
+        self.bibliotecas: set[BibliotecaID] = set()
+        self.bibliotecas_externas: set[BibliotecaID] = set()
         self.data_de_criacao = agorinha()
         self.data_de_atualizacao = agorinha()
 
@@ -51,27 +58,45 @@ class Usuario:
             raise ValueError('Já existe uma biblioteca com esse nome.')
 
         biblioteca = Biblioteca(nome=nome, pertencente=self)
-        self.bibliotecas[biblioteca.id] = biblioteca
+        self.bibliotecas.add(biblioteca.id)
         return biblioteca
 
     def cadastrar_livro(self, titulo: Titulo, conteudo: list[str]):
-        livro: Livro = GLOBAL_DATABASE['querys']['L_NOME'].get(titulo)
-        if livro:
-            if livro.id in self.livros:
-                raise ValueError('Você já possui um livro com esse nome.')
+        livro_existente: Livro = GLOBAL_DATABASE['querys']['L_NOME'].get(titulo)
+        if livro_existente:
+            if livro_existente.id in self.livros:
+                raise ValueError('Você já possui um livro com esse titulo.')
             raise ValueError('Esse livro já existe.')
-        self.livros[titulo] = Livro(titulo=titulo, conteudo=conteudo, autor=self)
+        
+        livro = Livro(titulo, conteudo, autor=self)
+        self.livros.add(livro.id)
+        return livro
 
-    def modificar_livro(self, livro: Livro, pagina: int, conteudo: str):
+    def adicionar_livro_a_biblioteca(self, livro_id: LivroID, biblioteca_id, estantes: Iterable[int]):
+        biblioteca: Biblioteca | None = GLOBAL_DATABASE['querys']['B_ID'].get(biblioteca_id)
+        if biblioteca is None:
+            raise ValueError('Essa biblioteca não existe')
+
+        biblioteca.adicionar_livro(self.id, livro_id, estantes)
+
+
+    def modificar_livro(self, livro: 'Livro', pagina: int, conteudo: str):
         livro.modificar_pagina(self, pagina, conteudo)
 
     def __setattr__(self, name, value):
-        object.__setattr__(self, name, value)
-        if name != 'data_de_atualizacao':
-            object.__setattr__(self, 'data_de_atualizacao', agorinha())
+        EmptyClass.__setattr__(self, name, value)
+        EmptyClass.__setattr__(self, 'data_de_atualizacao', agorinha())
 
 
 class Biblioteca:
+    @staticmethod
+    def permitir_somente_usuario_autorizado(method: Callable[['Biblioteca'], Any | NoReturn]):
+        def callback(self: 'Biblioteca', usuario_id: UsuarioID, *args, **kwargs):
+            if usuario_id not in self.ids_autorizados:
+                raise PermissionError('Você não tem permissão para modificar essa biblioteca.')
+            return method(self, *args, **kwargs)
+        return callback
+
     def __init__(self, nome: str, pertencente: Usuario):
         self.nome = nome
         self.id: BibliotecaID = gerar_id()
@@ -89,18 +114,31 @@ class Biblioteca:
         for livro in self.livros:
             print(livro.titulo)
 
-    def remover_livro(self, livro_id: str, estantes: list[int] | None=None):
+    @permitir_somente_usuario_autorizado
+    def adicionar_livro(self, livro_id: str, estantes: Iterable[int]):
+        for i in estantes:
+            estante = self.estantes[i]
+            estante.add(livro_id)
+    
+    @permitir_somente_usuario_autorizado
+    def remover_livro(self, livro_id: str, estantes: Iterable[int]):
         for i in estantes:
             estante = self.estantes[i]
             estante.remove(livro_id)
+    
+    @permitir_somente_usuario_autorizado
+    def renomear_biblioteca(self, novo_nome: str):
+        self.nome = novo_nome
 
+    @permitir_somente_usuario_autorizado # somente um usuário autorizado pode autorizar outros usuários
     def autorizar_usuario(self, usuario: Usuario):
         self.ids_autorizados.add(usuario.id)
+        if self.id not in usuario.bibliotecas:
+            usuario.bibliotecas_externas.add(self.id)
 
     def __setattr__(self, name, value):
-        object.__setattr__(self, name, value)
-        if name != 'data_de_atualizacao':
-            object.__setattr__(self, 'data_de_atualizacao', agorinha())
+        EmptyClass.__setattr__(self, name, value)
+        EmptyClass.__setattr__(self, 'data_de_atualizacao', agorinha())
 
 
 class Livro:
@@ -134,9 +172,8 @@ class Livro:
         self.titulo = novo_titulo
 
     def __setattr__(self, name, value):
-        object.__setattr__(self, name, value)
-        if name != 'data_de_atualizacao':
-            object.__setattr__(self, 'data_de_atualizacao', agorinha())
+        EmptyClass.__setattr__(self, name, value)
+        EmptyClass.__setattr__(self, 'data_de_atualizacao', agorinha())
 
 
 class UsuarioGUI(Usuario):
@@ -183,4 +220,45 @@ class UsuarioGUI(Usuario):
         with open('temp.txt', 'r') as paginas:
             content = paginas.read().split('\n\n\n')
 
-        self.cadastrar_livro(titulo, content)
+        livro = self.cadastrar_livro(titulo, content)
+        
+        if input('Adicionar livro a alguma biblioteca? [y/N] ').strip()[:1].lower() == 'y':
+            self.GUI_adicionar_livro_a_biblioteca(livro)
+        
+        return livro
+
+    
+
+    def GUI_adicionar_livro_a_biblioteca(self, livro: Livro):
+        bibliotecas_do_usuario: list[Biblioteca] = [GLOBAL_DATABASE['querys']['B_ID'][_id] for _id in self.bibliotecas + self.bibliotecas_externas]
+
+        print('==== SUAS BIBLIOTECAS ====')
+        for i, biblioteca in enumerate(bibliotecas_do_usuario):
+            print(f'[{i + 1}] {biblioteca.nome}')
+        print('==========================')
+        while True:
+            n = int(input('[*] Insira o número da biblioteca > '))
+            if 0 < n < len(bibliotecas_do_usuario):
+                break
+            print('[!] NÚMERO INVÁLIDO')
+        biblioteca_selecionada = bibliotecas_do_usuario[n - 1]
+
+        print('==== ESTANTES ====')
+        for i in range(len(biblioteca_selecionada.estantes) - 1):
+            livros_quantidade = len(biblioteca_selecionada.estantes[i])                
+            print(f'[{i}] |', "/" * livros_quantidade, end=' ')
+
+            if livros_quantidade > 0:
+                print(f'({livros_quantidade} livros)', end='')
+            print()
+        print('==================')
+
+        print('[?] Em quais estantes deseja adicionar seu livro?')
+        while True:
+            K = map(int, input('[*] Insira os números (separando por espaço) > ').split())
+            if 0 < min(K) and max(K) < len(bibliotecas_do_usuario):
+                break
+            print('[!] NÚMERO INVÁLIDO')
+
+        biblioteca_selecionada.adicionar_livro(livro.id, K)
+        
