@@ -33,9 +33,6 @@ def gerar_id() -> ID:
 class EmptyClass:
     def __init__(self):
         return None
-    def __setattr__(self: Any, nome: str, value: Any) -> None:
-        super().__setattr__(nome, value)
-
 
 class Usuario:
     def __init__(self, nome: str):
@@ -83,7 +80,7 @@ class Usuario:
     def modificar_livro(self, livro: Livro, pagina: int, conteudo: str):
         livro.modificar_pagina(self, pagina, conteudo)
 
-    def __setattr__(self, name: str, value: Any):
+    def __setattr__(self: Any, name: str, value: Any):
         EmptyClass.__setattr__(self, name, value)
         EmptyClass.__setattr__(self, 'data_de_atualizacao', agorinha())
 
@@ -139,8 +136,8 @@ class Biblioteca:
         if self.id not in usuario.bibliotecas:
             usuario.bibliotecas_externas.add(self.id)
 
-    def __setattr__(self, name: str, value: Any):
-        EmptyClass.__setattr__(self, name, value)
+    def __setattr__(self: Any, name: str, value: Any):
+        EmptyClass.__setattr__(self, name, value) 
         EmptyClass.__setattr__(self, 'data_de_atualizacao', agorinha())
 
 
@@ -174,20 +171,20 @@ class Livro:
             raise PermissionError('Apenas o autor pode realizar essa ação')
         self.titulo = novo_titulo
 
-    def __setattr__(self, name: str, value: Any):
+    def __setattr__(self: Any, name: str, value: Any):
         EmptyClass.__setattr__(self, name, value)
         EmptyClass.__setattr__(self, 'data_de_atualizacao', agorinha())
 
 
 class UsuarioGUI(Usuario):
     def __init__(self):
-        print('=== REGISTRE-SE ===')
+        print('\n=== REGISTRE-SE ===')
         nome = input('[*] Nome: ')
         print('===   FIM :D    ===')
 
         super().__init__(nome)
     def criar_uma_biblioteca(self):
-        print('=== CRIE UMA BIBILIOTECA ===')
+        print('\n=== CRIE UMA BIBILIOTECA ===')
 
         biblioteca = self.cadastrar_biblioteca(input('[*] Nome da sua biblioteca: '))
 
@@ -210,7 +207,7 @@ class UsuarioGUI(Usuario):
 
     def criar_um_livro(self):
         # TODO: Implementar um editor de texto integrado aproveitando a biblioteca Keyboard
-        print('=== CRIAR LIVRO ===')
+        print('\n=== CRIAR LIVRO ===')
         print('[LOL] Ainda não fiz um editor de texto integrado.')
 
         if input('Deseja continuar com bloco de notas? [y/N] ').strip()[:1].lower() != 'y':
@@ -218,11 +215,12 @@ class UsuarioGUI(Usuario):
 
         
         titulo = input('Titulo: ')
-        run(rf'notepad.exe {__file__}\temp.txt')
-        with open('temp.txt', 'r') as paginas:
-            content = paginas.read().split('\n\n\n')
 
-        livro = self.cadastrar_livro(titulo, content)
+        with open('temp.txt', 'w+') as arquivo:
+            run(rf'notepad.exe temp.txt')
+            paginas = arquivo.read().split('\n\n\n')
+
+        livro = self.cadastrar_livro(titulo, paginas)
         
         if input('\nAdicionar livro a alguma biblioteca? [y/N] ').strip()[:1].lower() == 'y':
             self.GUI_adicionar_livro_a_biblioteca(livro)
@@ -234,18 +232,18 @@ class UsuarioGUI(Usuario):
     def GUI_adicionar_livro_a_biblioteca(self, livro: Livro):
         bibliotecas_do_usuario: list[Biblioteca] = [database.Querys.biblioteca_id[_id] for _id in (*self.bibliotecas, *self.bibliotecas_externas)]
 
-        print('==== SUAS BIBLIOTECAS ====')
+        print('\n==== SUAS BIBLIOTECAS ====')
         for i, biblioteca in enumerate(bibliotecas_do_usuario):
             print(f'[{i + 1}] {biblioteca.nome}')
         print('==========================')
         while True:
             n = int(input('[*] Insira o número da biblioteca > '))
-            if 0 < n < len(bibliotecas_do_usuario):
+            if 0 < n <= len(bibliotecas_do_usuario):
                 break
             print('[!] NÚMERO INVÁLIDO')
         biblioteca_selecionada = bibliotecas_do_usuario[n - 1]
 
-        print('==== ESTANTES ====')
+        print('\n==== ESTANTES ====')
         for i in range(len(biblioteca_selecionada.estantes) - 1):
             livros_quantidade = len(biblioteca_selecionada.estantes[i])                
             print(f'[{i}] |', "/" * livros_quantidade, end=' ')
@@ -264,3 +262,9 @@ class UsuarioGUI(Usuario):
 
         biblioteca_selecionada.adicionar_livro(livro.id, K)
         
+def gui_completo():
+    usuario = UsuarioGUI()
+    usuario.criar_uma_biblioteca()
+    usuario.criar_um_livro()
+
+gui_completo()
