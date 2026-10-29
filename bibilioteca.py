@@ -5,9 +5,9 @@ from subprocess import run
 from typing import Iterable, Callable, Any, NoReturn
 
 class database:
-    usuarios: set[Usuario]       = set()
-    bibliotecas: set[Biblioteca] = set()
-    livros: set[Livro]           = set()
+    usuarios: list[Usuario]       = []
+    bibliotecas: list[Biblioteca] = []
+    livros: list[Livro]           = []
 
     class Querys:
         usuario_id: dict[UsuarioID, Usuario]          = {}
@@ -44,7 +44,7 @@ class Usuario:
         self.data_de_criacao = agorinha()
         self.data_de_atualizacao = agorinha()
 
-        database.usuarios.add(self)
+        database.usuarios.append(self)
         database.Querys.usuario_nome  [nome] = self
         database.Querys.usuario_id [self.id] = self
 
@@ -98,7 +98,7 @@ class Biblioteca:
         self.data_de_criacao = agorinha()
         self.data_de_atualizacao = agorinha()
 
-        database.bibliotecas.add(self)
+        database.bibliotecas.append(self)
         database.Querys.biblioteca_id[self.id] = self
         database.Querys.biblioteca_nome[nome] = self
 
@@ -116,6 +116,9 @@ class Biblioteca:
     
     @permitir_somente_usuario_autorizado
     def remover_livro(self, livro_id: str, estantes: Iterable[int]):
+        if len(set(estantes)) == len(self.estantes):
+            self.livros.remove(livro_id)
+        
         for i in estantes:
             estante = self.estantes[i]
             estante.remove(livro_id)
@@ -145,7 +148,7 @@ class Livro:
         self.data_de_criacao = agorinha()
         self.data_de_atualizacao = agorinha()
 
-        database.livros.add(self)
+        database.livros.append(self)
         database.Querys.livro_id[self.id] = self
 
         query = database.Querys.livro_nome
@@ -184,9 +187,9 @@ class Livro:
 
 class GUICompleto:
     def __init__(self):
-        print('\n=== REGISTRE-SE ===')
+        print('\n==== REGISTRE-SE ====')
         nome = input('[*] Nome: ')
-        print('===   FIM :D    ===')
+        print('======== FIM :D =======')
         self.auth_user = Usuario(nome)
 
     def criar_uma_biblioteca(self):
@@ -212,8 +215,8 @@ class GUICompleto:
                     break
 
     def criar_um_livro(self):
-        # TODO: Implementar um editor de texto integrado aproveitando a biblioteca Keyboard
-        print('\n=== CRIAR LIVRO ===')
+        # TODO: Implementar um editor de texto integrado tipo o vim
+        print('\n==== CRIAR LIVRO ====')
         print('[LOL] Ainda não fiz um editor de texto integrado.')
 
         if input('Deseja continuar com bloco de notas? [y/N] ').strip()[:1].lower() != 'y':
@@ -221,7 +224,7 @@ class GUICompleto:
 
         
         titulo = input('Titulo: ')
-
+        print('[x] Feche a janela para concluir o livro.')
         with open('temp.txt', 'w+') as arquivo:
             run(rf'notepad.exe temp.txt')
             paginas = arquivo.read().split('\n\n\n')
@@ -234,14 +237,23 @@ class GUICompleto:
         return livro
 
     
+    def formatar_e_exibir_estantes(self, biblioteca: Biblioteca):
+        for i in range(len(biblioteca.estantes) - 1):
+            livros_quantidade = len(biblioteca.estantes[i])                
+            print(f'[{i}] |', "/" * livros_quantidade, end=' ')
 
+            if livros_quantidade > 1:
+                print(f'({livros_quantidade} livros)', end='')
+            print()
     def adicionar_livro_a_biblioteca(self, livro: Livro):
+        print('\n==== ADICIONAR LIVRO ====')
+        print('[+] SUAS BIBLIOTECAS: ')
+        
         bibliotecas_do_usuario: list[Biblioteca] = [database.Querys.biblioteca_id[_id] for _id in (*self.auth_user.bibliotecas, *self.auth_user.bibliotecas_externas)]
-
-        print('\n==== SUAS BIBLIOTECAS ====')
         for i, biblioteca in enumerate(bibliotecas_do_usuario):
-            print(f'[{i + 1}] {biblioteca.nome}')
-        print('==========================')
+            print(f'[{i + 1}]     {biblioteca.nome}')
+        print()
+
         while True:
             n = int(input('[*] Insira o número da biblioteca > '))
             if 0 < n <= len(bibliotecas_do_usuario):
@@ -250,13 +262,7 @@ class GUICompleto:
         biblioteca_selecionada = bibliotecas_do_usuario[n - 1]
 
         print('\n==== ESTANTES ====')
-        for i in range(len(biblioteca_selecionada.estantes) - 1):
-            livros_quantidade = len(biblioteca_selecionada.estantes[i])                
-            print(f'[{i}] |', "/" * livros_quantidade, end=' ')
-
-            if livros_quantidade > 1:
-                print(f'({livros_quantidade} livros)', end='')
-            print()
+        self.formatar_e_exibir_estantes(biblioteca_selecionada)
         print('==================')
 
         print('[?] Em quais estantes deseja adicionar seu livro?')
@@ -267,3 +273,71 @@ class GUICompleto:
             print('[!] NÚMERO INVÁLIDO')
 
         biblioteca_selecionada.adicionar_livro(livro.id, K)
+
+    
+    def gerenciar_biblioteca(self):
+
+
+        print("\n==== CONSULTAR BIBLIOTECA ====")
+        print('[+] BIBLIOTECAS DISPONÍVEIS: ')
+        for i, biblioteca in enumerate(database.bibliotecas):
+            print(f'[{i+1}]    {biblioteca.nome}')
+        print()
+
+        while True:
+            biblioteca_numero = int(input('[*] Insira o número da biblioteca > '))
+
+            if 0 < biblioteca_numero <= len(database.bibliotecas):
+                break
+
+            print('[!] NÚMERO INVÁLIDO\n')
+
+        biblioteca = database.bibliotecas[biblioteca_numero - 1]
+
+        print(f'[>] Biblioteca selecionada: {biblioteca.nome}')
+
+        print(f'[?] O que deseja fazer?')
+        print('[1] Listar livros')
+        print('[2] Listar estantes')
+        print('[3] Remover um livro')
+        print('[4] Encerrar operação')
+
+        while True:
+            r = int(input(f'[*] Sua resposta > '))
+
+            livros = tuple(database.Querys.livro_id[id] for id in biblioteca.livros)
+            match r:
+                case 1:
+                    for livro in livros:
+                        print(f'[|]    {livro.titulo}')
+                case 2:
+                    self.formatar_e_exibir_estantes(biblioteca)
+                case 3:
+                    livro = self.selecionar_livro(livros)
+
+                    print(f'[+] "{livro.titulo}" selecionado.')
+                    if input('[?] Tem certeza que deseja remover esse livro?\n  A ação apenas excluirá o livro de todas as estantes da biblioteca. [y/N] ').strip()[:1].lower() == 'n':
+                        biblioteca.remover_livro(
+                            self.auth_user.id, 
+                            livro.id,
+                            estantes=range(len(biblioteca.estantes) - 1) # todas as prateleiras
+                        )
+                
+                case 4:
+                    break
+                case _:
+                    print('[!] RESPOSTA INVÁLIDA\n')
+        print('================================')
+    def selecionar_livro(self, livros: tuple[Livro, ...]):
+        print('\n==== LIVROS DISPONÍVEIS ====')
+        for i, livro in enumerate(livros):
+            print(f'[{i}]    {livro.titulo}')
+        print('==============================')
+        
+        while True:
+            n = int(input('[*] Número do livro:'))
+            if 0 < n <= len(livros):
+                break
+            print('[!] NÚMERO INVÁLIDO\n')
+
+        return livros[n - 1]
