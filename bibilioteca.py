@@ -182,17 +182,17 @@ class Livro:
         EmptyClass.__setattr__(self, 'data_de_atualizacao', agorinha())
 
 
-class UsuarioGUI(Usuario):
+class GUICompleto:
     def __init__(self):
         print('\n=== REGISTRE-SE ===')
         nome = input('[*] Nome: ')
         print('===   FIM :D    ===')
+        self.auth_user = Usuario(nome)
 
-        super().__init__(nome)
     def criar_uma_biblioteca(self):
         print('\n=== CRIE UMA BIBILIOTECA ===')
 
-        biblioteca = self.cadastrar_biblioteca(input('[*] Nome da sua biblioteca: '))
+        biblioteca = self.auth_user.cadastrar_biblioteca(input('[*] Nome da sua biblioteca: '))
 
         if input('\nDeseja autorizar mais usuários a modificar sua biblioteca? [y/N]: ').strip()[:1].lower() == 'y':
             while True:
@@ -226,17 +226,17 @@ class UsuarioGUI(Usuario):
             run(rf'notepad.exe temp.txt')
             paginas = arquivo.read().split('\n\n\n')
 
-        livro = self.cadastrar_livro(titulo, paginas)
+        livro = self.auth_user.cadastrar_livro(titulo, paginas)
         
         if input('\nAdicionar livro a alguma biblioteca? [y/N] ').strip()[:1].lower() == 'y':
-            self.GUI_adicionar_livro_a_biblioteca(livro)
+            self.adicionar_livro_a_biblioteca(livro)
         
         return livro
 
     
 
-    def GUI_adicionar_livro_a_biblioteca(self, livro: Livro):
-        bibliotecas_do_usuario: list[Biblioteca] = [database.Querys.biblioteca_id[_id] for _id in (*self.bibliotecas, *self.bibliotecas_externas)]
+    def adicionar_livro_a_biblioteca(self, livro: Livro):
+        bibliotecas_do_usuario: list[Biblioteca] = [database.Querys.biblioteca_id[_id] for _id in (*self.auth_user.bibliotecas, *self.auth_user.bibliotecas_externas)]
 
         print('\n==== SUAS BIBLIOTECAS ====')
         for i, biblioteca in enumerate(bibliotecas_do_usuario):
@@ -267,10 +267,3 @@ class UsuarioGUI(Usuario):
             print('[!] NÚMERO INVÁLIDO')
 
         biblioteca_selecionada.adicionar_livro(livro.id, K)
-        
-def gui_completo():
-    usuario = UsuarioGUI()
-    usuario.criar_uma_biblioteca()
-    usuario.criar_um_livro()
-
-gui_completo()
