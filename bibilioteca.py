@@ -5,9 +5,9 @@ from subprocess import run
 from typing import Iterable, Callable, Any, NoReturn
 
 class database:
-    usuarios: list[Usuario]       = []
-    bibliotecas: list[Biblioteca] = []
-    livros: list[Livro]           = []
+    usuarios: set[Usuario]       = set()
+    bibliotecas: set[Biblioteca] = set()
+    livros: set[Livro]           = set()
 
     class Querys:
         usuario_id: dict[UsuarioID, Usuario]          = {}
@@ -15,7 +15,7 @@ class database:
         biblioteca_id: dict[BibliotecaID, Biblioteca] = {}
         biblioteca_nome: dict[str, Biblioteca]        = {}
         livro_id: dict[LivroID, Livro]                = {}
-        livro_nome: dict[str, Livro]                  = {}
+        livro_nome: dict[str, set[Livro]]             = {}
 
 agorinha = date.today
 
@@ -44,8 +44,8 @@ class Usuario:
         self.data_de_criacao = agorinha()
         self.data_de_atualizacao = agorinha()
 
-        database.usuarios.append(self)
-        database.Querys.usuario_nome [nome] = self
+        database.usuarios.add(self)
+        database.Querys.usuario_nome  [nome] = self
         database.Querys.usuario_id [self.id] = self
 
     def cadastrar_biblioteca(self, nome: BibliotecaNome) -> Biblioteca:
@@ -59,12 +59,6 @@ class Usuario:
 
     def cadastrar_livro(self, titulo: Titulo, conteudo: list[str]):
         """Cria um livro """
-        livro_existente = database.Querys.livro_nome.get(titulo)
-        if livro_existente:
-            if livro_existente.id in self.livros:
-                raise ValueError('Você já possui um livro com esse titulo.')
-            raise ValueError('Esse livro já existe.')
-        
         livro = Livro(titulo, conteudo, autor=self)
         self.livros.add(livro.id)
         return livro
@@ -78,7 +72,7 @@ class Usuario:
 
 
     def modificar_livro(self, livro: Livro, pagina: int, conteudo: str):
-        livro.modificar_pagina(self, pagina, conteudo)
+        livro.alterar_pagina(self, pagina, conteudo)
 
     def __setattr__(self: Any, name: str, value: Any):
         EmptyClass.__setattr__(self, name, value)
@@ -104,7 +98,7 @@ class Biblioteca:
         self.data_de_criacao = agorinha()
         self.data_de_atualizacao = agorinha()
 
-        database.bibliotecas.append(self)
+        database.bibliotecas.add(self)
         database.Querys.biblioteca_id[self.id] = self
         database.Querys.biblioteca_nome[nome] = self
 
@@ -151,9 +145,14 @@ class Livro:
         self.data_de_criacao = agorinha()
         self.data_de_atualizacao = agorinha()
 
-        database.livros.append(self)
+        database.livros.add(self)
         database.Querys.livro_id[self.id] = self
-        database.Querys.livro_nome[titulo] = self
+
+        query = database.Querys.livro_nome
+        if query.get(titulo) is not None:
+            query[titulo].add(self)
+        else:
+            query[titulo] = {self}
 
     def mostrar_conteudo(self, pagina: int):
         if not 0 <= pagina < len(self.conteudo):
@@ -161,14 +160,21 @@ class Livro:
 
         print(self.conteudo[pagina])
 
-    def modificar_pagina(self, usuario: Usuario, pagina: int, novo_conteudo: str):
+    def alterar_pagina(self, usuario: Usuario, pagina: int, novo_conteudo: str):
         if not usuario.id in self.ids_autorizados:
             raise PermissionError('Você não tem permissão para modificar esse livro')
         self.conteudo[pagina] = novo_conteudo
 
-    def modificar_titulo(self, usuario: Usuario, novo_titulo: str):
+    def alterar_titulo(self, usuario: Usuario, novo_titulo: str):
         if usuario is not self.autor:
             raise PermissionError('Apenas o autor pode realizar essa ação')
+        query = database.Querys.livro_nome
+        query[self.titulo].remove(self)
+        
+        if query.get(novo_titulo) is not None:
+            query[novo_titulo].add(self)
+        else:
+            query[novo_titulo] = {self}
         self.titulo = novo_titulo
 
     def __setattr__(self: Any, name: str, value: Any):
