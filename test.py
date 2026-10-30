@@ -9,7 +9,7 @@ def avaliar_colisoes(repeat: int):
         ids: set[str] = set()
         while True:
             id = gerar_id(4)
-            if id == 'itau':
+            if id == ids:
                 break
             ids.add(id)
         print(f'Colisão após {len(ids) + 1} combinações')
