@@ -5,17 +5,17 @@ from subprocess import run
 from typing import Iterable, Callable, Any, NoReturn
 
 class database:
-    usuarios: list[Usuario]       = []
-    bibliotecas: list[Biblioteca] = []
-    livros: list[Livro]           = []
+    usuarios: list['Usuario']       = []
+    bibliotecas: list['Biblioteca'] = []
+    livros: list['Livro']           = []
 
     class Querys:
-        usuario_id: dict[UsuarioID, Usuario]          = {}
-        usuario_nome: dict[str, Usuario]              = {}
-        biblioteca_id: dict[BibliotecaID, Biblioteca] = {}
-        biblioteca_nome: dict[str, Biblioteca]        = {}
-        livro_id: dict[LivroID, Livro]                = {}
-        livro_nome: dict[str, set[Livro]]             = {}
+        usuario_id: dict['UsuarioID', 'Usuario']          = {}
+        usuario_nome: dict[str, 'Usuario']              = {}
+        biblioteca_id: dict['BibliotecaID', 'Biblioteca'] = {}
+        biblioteca_nome: dict[str, 'Biblioteca']        = {}
+        livro_id: dict['LivroID', 'Livro']                = {}
+        livro_nome: dict[str, set['Livro']]             = {}
 
 agorinha = date.today
 
@@ -38,9 +38,9 @@ class Usuario:
     def __init__(self, nome: str):
         self.nome = nome
         self.id: UsuarioID = gerar_id()
-        self.livros: set[LivroID] = set()
-        self.bibliotecas: set[BibliotecaID] = set()
-        self.bibliotecas_externas: set[BibliotecaID] = set()
+        self.livros: set[Livro] = set()
+        self.bibliotecas: set[Biblioteca] = set()
+        self.bibliotecas_externas: set[Biblioteca] = set()
         self.data_de_criacao = agorinha()
         self.data_de_atualizacao = agorinha()
 
@@ -48,30 +48,30 @@ class Usuario:
         database.Querys.usuario_nome  [nome] = self
         database.Querys.usuario_id [self.id] = self
 
-    def cadastrar_biblioteca(self, nome: BibliotecaNome) -> Biblioteca:
+    def cadastrar_biblioteca(self, nome: BibliotecaNome) -> 'Biblioteca':
         """Registra uma nova biblioteca vazia no banco de dados e retorna """
         if database.Querys.usuario_nome.get(nome, False):
             raise ValueError('Já existe uma biblioteca com esse nome.')
 
         biblioteca = Biblioteca(nome=nome, pertencente=self)
-        self.bibliotecas.add(biblioteca.id)
+        self.bibliotecas.add(biblioteca)
         return biblioteca
 
     def cadastrar_livro(self, titulo: Titulo, conteudo: list[str]):
         """Cria um livro """
         livro = Livro(titulo, conteudo, autor=self)
-        self.livros.add(livro.id)
+        self.livros.add(livro)
         return livro
 
-    def adicionar_livro_a_biblioteca(self, livro_id: LivroID, biblioteca_id: UsuarioID, estantes: Iterable[int]):
+    def adicionar_livro_a_biblioteca(self, livro: 'Livro', biblioteca_id: UsuarioID, estantes: Iterable[int]):
         biblioteca = database.Querys.biblioteca_id.get(biblioteca_id)
         if biblioteca is None:
             raise ValueError('Essa biblioteca não existe')
 
-        biblioteca.adicionar_livro(self.id, livro_id, estantes)
+        biblioteca.adicionar_livro(self.id, livro, estantes)
 
 
-    def modificar_livro(self, livro: Livro, pagina: int, conteudo: str):
+    def modificar_livro(self, livro: 'Livro', pagina: int, conteudo: str):
         livro.alterar_pagina(self, pagina, conteudo)
 
     def __setattr__(self: Any, name: str, value: Any):
@@ -93,8 +93,8 @@ class Biblioteca:
         self.id: BibliotecaID = gerar_id()
         self.pertencente = pertencente
         self.ids_autorizados = {pertencente.id}
-        self.livros: set[LivroID] = set()
-        self.estantes: list[set[LivroID]] = []
+        self.livros: set[Livro] = set()
+        self.estantes: list[set[Livro]] = []
         self.data_de_criacao = agorinha()
         self.data_de_atualizacao = agorinha()
 
@@ -103,25 +103,24 @@ class Biblioteca:
         database.Querys.biblioteca_nome[nome] = self
 
     def mostrar_titulos(self):
-        livros = [database.Querys.livro_id[_id] for _id in self.livros]
-        for livro in livros:
+        for livro in self.livros:
             print(livro.titulo)
 
     @permitir_somente_usuario_autorizado
-    def adicionar_livro(self, livro_id: str, estantes: Iterable[int]):
-        self.livros.add(livro_id)
+    def adicionar_livro(self, livro: 'Livro', estantes: Iterable[int]):
+        self.livros.add(livro)
         for i in estantes:
             estante = self.estantes[i]
-            estante.add(livro_id)
+            estante.add(livro)
     
     @permitir_somente_usuario_autorizado
-    def remover_livro(self, livro_id: str, estantes: Iterable[int]):
+    def remover_livro(self, livro: 'Livro', estantes: Iterable[int]):
         if len(set(estantes)) == len(self.estantes):
-            self.livros.remove(livro_id)
+            self.livros.remove(livro)
         
         for i in estantes:
             estante = self.estantes[i]
-            estante.remove(livro_id)
+            estante.remove(livro)
     
     @permitir_somente_usuario_autorizado
     def renomear_biblioteca(self, novo_nome: str):
@@ -131,7 +130,7 @@ class Biblioteca:
     def autorizar_usuario(self, usuario: Usuario):
         self.ids_autorizados.add(usuario.id)
         if self.id not in usuario.bibliotecas:
-            usuario.bibliotecas_externas.add(self.id)
+            usuario.bibliotecas_externas.add(self)
 
     def __setattr__(self: Any, name: str, value: Any):
         EmptyClass.__setattr__(self, name, value) 
@@ -144,7 +143,7 @@ class Livro:
         self.id: LivroID = gerar_id()
         self.conteudo = conteudo
         self.autor = autor
-        self.ids_autorizados = {autor.id}
+        self.usuarios_autorizados = {autor}
         self.data_de_criacao = agorinha()
         self.data_de_atualizacao = agorinha()
 
@@ -164,7 +163,7 @@ class Livro:
         print(self.conteudo[pagina])
 
     def alterar_pagina(self, usuario: Usuario, pagina: int, novo_conteudo: str):
-        if not usuario.id in self.ids_autorizados:
+        if not usuario in self.usuarios_autorizados:
             raise PermissionError('Você não tem permissão para modificar esse livro')
         self.conteudo[pagina] = novo_conteudo
 
@@ -193,7 +192,7 @@ class GUICompleto:
         self.auth_user = Usuario(nome)
 
     def criar_uma_biblioteca(self):
-        print('\n=== CRIE UMA BIBILIOTECA ===')
+        print('\n==== CRIE UMA BIBILIOTECA ====')
 
         biblioteca = self.auth_user.cadastrar_biblioteca(input('[*] Nome da sua biblioteca: '))
 
@@ -249,7 +248,7 @@ class GUICompleto:
         print('\n==== ADICIONAR LIVRO ====')
         print('[+] SUAS BIBLIOTECAS: ')
         
-        bibliotecas_do_usuario: list[Biblioteca] = [database.Querys.biblioteca_id[_id] for _id in (*self.auth_user.bibliotecas, *self.auth_user.bibliotecas_externas)]
+        bibliotecas_do_usuario = tuple(self.auth_user.bibliotecas | self.auth_user.bibliotecas_externas)
         for i, biblioteca in enumerate(bibliotecas_do_usuario):
             print(f'[{i + 1}]     {biblioteca.nome}')
         print()
@@ -263,7 +262,7 @@ class GUICompleto:
 
         print('\n==== ESTANTES ====')
         self.formatar_e_exibir_estantes(biblioteca_selecionada)
-        print('==================')
+        print('====================')
 
         print('[?] Em quais estantes deseja adicionar seu livro?')
         while True:
@@ -304,16 +303,14 @@ class GUICompleto:
 
         while True:
             r = int(input(f'[*] Sua resposta > '))
-
-            livros = tuple(database.Querys.livro_id[id] for id in biblioteca.livros)
             match r:
                 case 1:
-                    for livro in livros:
+                    for livro in biblioteca.livros:
                         print(f'[|]    {livro.titulo}')
                 case 2:
                     self.formatar_e_exibir_estantes(biblioteca)
                 case 3:
-                    livro = self.selecionar_livro(livros)
+                    livro = self.selecionar_livro(tuple(biblioteca.livros))
 
                     print(f'[+] "{livro.titulo}" selecionado.')
                     if input('[?] Tem certeza que deseja remover esse livro?\n  A ação apenas excluirá o livro de todas as estantes da biblioteca. [y/N] ').strip()[:1].lower() == 'n':
