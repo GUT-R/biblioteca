@@ -6,17 +6,13 @@ from subprocess import run
 from typing import Iterable, Callable, Any, NoReturn, Concatenate
 
 class database:
-    usuarios: list['Usuario']       = []
-    bibliotecas: list['Biblioteca'] = []
-    livros: list['Livro']           = []
+    usuarios: dict['UsuarioID', 'Usuario']          = {}
+    bibliotecas: dict['BibliotecaID', 'Biblioteca'] = {}
+    livros: dict['LivroID', 'Livro']                = {}
 
-    class Querys:
-        usuario_id: dict['UsuarioID', 'Usuario']          = {}
-        usuario_nome: dict[str, 'Usuario']                = {}
-        biblioteca_id: dict['BibliotecaID', 'Biblioteca'] = {}
-        biblioteca_nome: dict[str, 'Biblioteca']          = {}
-        livro_id: dict['LivroID', 'Livro']                = {}
-        livro_nome: dict[str, set['Livro']]               = {}
+    class UNIQUES:
+        usuarios_nome: set[str] = set()
+        biblioteca_nome: set[str] = set()
 
 agorinha = date.today
 
@@ -45,33 +41,27 @@ class Usuario:
         self.data_de_criacao = agorinha()
         self.data_de_atualizacao = agorinha()
 
-        database.usuarios.append(self)
-        database.Querys.usuario_nome  [nome] = self
-        database.Querys.usuario_id [self.id] = self
+        database.usuarios[self.id] = self
+        database.UNIQUES.usuarios_nome.add(self.nome)
         self.__nao_atualizar_data_de_atualizacao = False
 
     def cadastrar_biblioteca(self, nome: BibliotecaNome) -> 'Biblioteca':
         """Registra uma nova biblioteca vazia no banco de dados e retorna """
-        if database.Querys.usuario_nome.get(nome, False):
+        if nome in database.UNIQUES.biblioteca_nome:
             raise ValueError('Já existe uma biblioteca com esse nome.')
 
         biblioteca = Biblioteca(nome=nome, pertencente=self)
         self.bibliotecas.add(biblioteca)
         return biblioteca
 
-    def cadastrar_livro(self, titulo: Titulo, conteudo: list[str]):
-        """Cria um livro """
+    def cadastrar_livro(self, titulo: Titulo, conteudo: list[str]) -> 'Livro':
+        """Cria um livro"""
         livro = Livro(titulo, conteudo, autor=self)
         self.livros.add(livro)
         return livro
 
-    def adicionar_livro_a_biblioteca(self, livro: 'Livro', biblioteca_id: UsuarioID, estantes: Iterable[int]):
-        biblioteca = database.Querys.biblioteca_id.get(biblioteca_id)
-        if biblioteca is None:
-            raise ValueError('Essa biblioteca não existe')
-
+    def adicionar_livro_a_biblioteca(self, livro: 'Livro', biblioteca: 'Biblioteca', estantes: Iterable[int]):
         biblioteca.adicionar_livro(self, livro, estantes)
-
 
     def modificar_livro(self, livro: 'Livro', pagina: int, conteudo: str):
         livro.alterar_pagina(self, pagina, conteudo)
@@ -94,7 +84,6 @@ class Usuario:
 
 
 class Biblioteca:
-
     @staticmethod # Explicacação: 
     def permitir_somente_usuario_autorizado[**P, R](method: Callable[Concatenate['Biblioteca', P], R]) -> Callable[Concatenate['Biblioteca', Usuario, P], R]:
         def callback(self: 'Biblioteca', usuario: Usuario, *args: Any, **kwargs: Any):
@@ -113,10 +102,9 @@ class Biblioteca:
         self.data_de_criacao = agorinha()
         self.data_de_atualizacao = agorinha()
 
-        database.bibliotecas.append(self)
-        database.Querys.biblioteca_id[self.id] = self
-        database.Querys.biblioteca_nome[nome] = self
-
+        database.bibliotecas[self.id] = self
+        database.UNIQUES.biblioteca_nome.add(self.nome)
+        
     def mostrar_titulos(self):
         for livro in self.livros:
             print(livro.titulo)
@@ -175,14 +163,7 @@ class Livro:
         self.data_de_criacao = agorinha()
         self.data_de_atualizacao = agorinha()
 
-        database.livros.append(self)
-        database.Querys.livro_id[self.id] = self
-
-        query = database.Querys.livro_nome
-        if query.get(titulo) is not None:
-            query[titulo].add(self)
-        else:
-            query[titulo] = {self}
+        database.livros[self.id] = self
 
     def mostrar_conteudo(self, pagina: int):
         if not 0 <= pagina < len(self.conteudo):
@@ -198,13 +179,6 @@ class Livro:
     def alterar_titulo(self, usuario: Usuario, novo_titulo: str):
         if usuario is not self.autor:
             raise PermissionError('Apenas o autor pode realizar essa ação')
-        query = database.Querys.livro_nome
-        query[self.titulo].remove(self)
-        
-        if query.get(novo_titulo) is not None:
-            query[novo_titulo].add(self)
-        else:
-            query[novo_titulo] = {self}
         self.titulo = novo_titulo
 
     def para_json(self) -> dict[str, Any]:
@@ -234,15 +208,11 @@ class UICompleto:
         print('\n==== CRIE UMA BIBILIOTECA ====')
 
         biblioteca = self.auth_user.cadastrar_biblioteca(input('[*] Nome da sua biblioteca: '))
-
+        query_name = {user.nome: user for user in database.usuarios.values()}
         if input('\nDeseja autorizar mais usuários a modificar sua biblioteca? [y/N]: ').strip()[:1].lower() == 'y':
             while True:
-                nome_ou_id = input('[*] Insira o nome (ou o ID): ').strip()
-                querys = database.Querys
-                usuario = (
-                    querys.usuario_id.get(nome_ou_id) or
-                    querys.usuario_nome.get(nome_ou_id)
-                )
+                nome = input('[*] Insira o nome: ').strip()
+                usuario = query_name.get(nome)
 
                 if usuario is None:
                     print('[!] Usuário não existe.')
@@ -253,7 +223,7 @@ class UICompleto:
                 if input('Adicionar outro? [y/N]: ').strip()[:1].lower() != 'y':
                     break
 
-    def criar_um_livro(self):
+    def criar_um_livro(self) -> 'Livro' | None:
         # TODO: Implementar um editor de texto integrado tipo o vim
         print('\n==== CRIAR LIVRO ====')
         print('[LOL] Ainda não fiz um editor de texto integrado.')
@@ -315,7 +285,7 @@ class UICompleto:
 
         print("\n==== CONSULTAR BIBLIOTECA ====")
         print('[+] BIBLIOTECAS DISPONÍVEIS: ')
-        for i, biblioteca in enumerate(database.bibliotecas):
+        for i, biblioteca in enumerate(database.bibliotecas.values()):
             print(f'[{i+1}]    {biblioteca.nome}')
         print()
 
@@ -327,7 +297,7 @@ class UICompleto:
 
             print('[!] NÚMERO INVÁLIDO\n')
 
-        biblioteca = database.bibliotecas[biblioteca_numero - 1]
+        biblioteca = tuple(database.bibliotecas.values())[biblioteca_numero - 1]
 
         print(f'[>] Biblioteca selecionada: {biblioteca.nome}')
 
@@ -352,7 +322,7 @@ class UICompleto:
                     if input('[?] Tem certeza que deseja remover esse livro?\n  A ação apenas excluirá o livro de todas as estantes da biblioteca. [y/N] ').strip()[:1].lower() == 'n':
                         biblioteca.remover_livro(
                             self.auth_user,
-                            livro.id,
+                            livro,
                             estantes=range(len(biblioteca.estantes) - 1) # todas as estantes
                         )
                 
@@ -362,7 +332,7 @@ class UICompleto:
                     print('[!] RESPOSTA INVÁLIDA\n')
         print('================================')
     
-    def selecionar_livro(self, livros: tuple[Livro, ...]):
+    def selecionar_livro(self, livros: tuple[Livro, ...]) -> Livro:
         print('\n==== LIVROS DISPONÍVEIS ====')
         for i, livro in enumerate(livros):
             print(f'[{i}]    {livro.titulo}')
@@ -378,9 +348,9 @@ class UICompleto:
 
 def salvar_banco(filename: str):
     data = {
-        "users": [user.para_json() for user in database.usuarios],
-        "libs": [lib.para_json() for lib in database.bibliotecas],
-        "books": [book.para_json() for book in database.livros],
+        "users": {id: user.para_json() for id, user in database.usuarios.items()},
+        "libs": {id: lib.para_json() for id, lib in database.bibliotecas.items()},
+        "books": {id: book.para_json() for id, book in database.livros.items()},
     }
     with open(filename, "w") as file:
         json.dump(data, file, indent=4)
