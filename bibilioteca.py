@@ -1,8 +1,9 @@
+import json
 from random import choice
 from string import ascii_lowercase, digits
 from datetime import date
 from subprocess import run
-from typing import Iterable, Callable, Any, NoReturn
+from typing import Iterable, Callable, Any, NoReturn, Concatenate
 
 class database:
     usuarios: list['Usuario']       = []
@@ -11,11 +12,11 @@ class database:
 
     class Querys:
         usuario_id: dict['UsuarioID', 'Usuario']          = {}
-        usuario_nome: dict[str, 'Usuario']              = {}
+        usuario_nome: dict[str, 'Usuario']                = {}
         biblioteca_id: dict['BibliotecaID', 'Biblioteca'] = {}
-        biblioteca_nome: dict[str, 'Biblioteca']        = {}
+        biblioteca_nome: dict[str, 'Biblioteca']          = {}
         livro_id: dict['LivroID', 'Livro']                = {}
-        livro_nome: dict[str, set['Livro']]             = {}
+        livro_nome: dict[str, set['Livro']]               = {}
 
 agorinha = date.today
 
@@ -47,6 +48,7 @@ class Usuario:
         database.usuarios.append(self)
         database.Querys.usuario_nome  [nome] = self
         database.Querys.usuario_id [self.id] = self
+        self.__nao_atualizar_data_de_atualizacao = False
 
     def cadastrar_biblioteca(self, nome: BibliotecaNome) -> 'Biblioteca':
         """Registra uma nova biblioteca vazia no banco de dados e retorna """
@@ -68,22 +70,35 @@ class Usuario:
         if biblioteca is None:
             raise ValueError('Essa biblioteca não existe')
 
-        biblioteca.adicionar_livro(self.id, livro, estantes)
+        biblioteca.adicionar_livro(self, livro, estantes)
 
 
     def modificar_livro(self, livro: 'Livro', pagina: int, conteudo: str):
         livro.alterar_pagina(self, pagina, conteudo)
 
+    def para_json(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "nome": self.nome,
+            "livros": [livro.id for livro in self.livros],
+            "bibliotecas": [biblioteca.id for biblioteca in self.bibliotecas],
+            "bibliotecas_externas": [biblioteca.id for biblioteca in self.bibliotecas_externas],
+            "data_de_criacao": self.data_de_criacao,
+            "data_de_atualizacao": self.data_de_atualizacao,
+        }
     def __setattr__(self: Any, name: str, value: Any):
         EmptyClass.__setattr__(self, name, value)
+        if self.__nao_atualizar_data_de_atualizacao:
+            return
         EmptyClass.__setattr__(self, 'data_de_atualizacao', agorinha())
 
 
 class Biblioteca:
-    @staticmethod
-    def permitir_somente_usuario_autorizado(method: Callable[..., Any | NoReturn]):
-        def callback(self: 'Biblioteca', usuario_id: UsuarioID, *args: Any, **kwargs: Any):
-            if usuario_id not in self.ids_autorizados:
+
+    @staticmethod # Explicacação: 
+    def permitir_somente_usuario_autorizado[**P, R](method: Callable[Concatenate['Biblioteca', P], R]) -> Callable[Concatenate['Biblioteca', Usuario, P], R]:
+        def callback(self: 'Biblioteca', usuario: Usuario, *args: Any, **kwargs: Any):
+            if usuario not in self.usuarios_autorizados:
                 raise PermissionError('Você não tem permissão para modificar essa biblioteca.')
             return method(self, *args, **kwargs)
         return callback
@@ -92,7 +107,7 @@ class Biblioteca:
         self.nome = nome
         self.id: BibliotecaID = gerar_id()
         self.pertencente = pertencente
-        self.ids_autorizados = {pertencente.id}
+        self.usuarios_autorizados = {pertencente}
         self.livros: set[Livro] = set()
         self.estantes: list[set[Livro]] = []
         self.data_de_criacao = agorinha()
@@ -128,10 +143,23 @@ class Biblioteca:
 
     @permitir_somente_usuario_autorizado # somente um usuário autorizado pode autorizar outros usuários
     def autorizar_usuario(self, usuario: Usuario):
-        self.ids_autorizados.add(usuario.id)
-        if self.id not in usuario.bibliotecas:
+        self.usuarios_autorizados.add(usuario)
+        if self not in usuario.bibliotecas:
             usuario.bibliotecas_externas.add(self)
-
+    
+    def para_json(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "nome": self.nome,
+            "livros": [livro.id for livro in self.livros],
+            "estantes": [[livro.id for livro in estante]
+                         for estante in self.estantes],
+            "pertencente": self.pertencente.id,
+            "usuarios_autorizados": [usuario.id for usuario in self.usuarios_autorizados],
+            "data_de_criacao": self.data_de_criacao,
+            "data_de_atualizacao": self.data_de_atualizacao,
+        }
+    
     def __setattr__(self: Any, name: str, value: Any):
         EmptyClass.__setattr__(self, name, value) 
         EmptyClass.__setattr__(self, 'data_de_atualizacao', agorinha())
@@ -179,12 +207,23 @@ class Livro:
             query[novo_titulo] = {self}
         self.titulo = novo_titulo
 
+    def para_json(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "titulo": self.titulo,
+            "conteudo": self.conteudo,
+            "autor": self.autor.id,
+            "usuarios_autorizados": [usuario.id for usuario in self.usuarios_autorizados],
+            "data_de_criacao": self.data_de_criacao,
+            "data_de_atualizacao": self.data_de_atualizacao,
+        }
+
     def __setattr__(self: Any, name: str, value: Any):
         EmptyClass.__setattr__(self, name, value)
         EmptyClass.__setattr__(self, 'data_de_atualizacao', agorinha())
 
 
-class GUICompleto:
+class UICompleto:
     def __init__(self):
         print('\n==== REGISTRE-SE ====')
         nome = input('[*] Nome: ')
@@ -206,9 +245,10 @@ class GUICompleto:
                 )
 
                 if usuario is None:
-                    raise ValueError('Usuário não existe.')
+                    print('[!] Usuário não existe.')
+                    continue
 
-                biblioteca.autorizar_usuario(usuario.id)
+                biblioteca.autorizar_usuario(self.auth_user, usuario)
 
                 if input('Adicionar outro? [y/N]: ').strip()[:1].lower() != 'y':
                     break
@@ -244,6 +284,7 @@ class GUICompleto:
             if livros_quantidade > 1:
                 print(f'({livros_quantidade} livros)', end='')
             print()
+    
     def adicionar_livro_a_biblioteca(self, livro: Livro):
         print('\n==== ADICIONAR LIVRO ====')
         print('[+] SUAS BIBLIOTECAS: ')
@@ -265,13 +306,8 @@ class GUICompleto:
         print('====================')
 
         print('[?] Em quais estantes deseja adicionar seu livro?')
-        while True:
-            K = map(int, input('[*] Insira os números (separando por espaço) > ').split())
-            if 0 < min(K) and max(K) < len(bibliotecas_do_usuario):
-                break
-            print('[!] NÚMERO INVÁLIDO')
-
-        biblioteca_selecionada.adicionar_livro(livro.id, K)
+        K = map(int, input('[*] Insira os números (separando por espaço) > ').split())
+        biblioteca_selecionada.adicionar_livro(self.auth_user, livro, K)
 
     
     def gerenciar_biblioteca(self):
@@ -302,22 +338,22 @@ class GUICompleto:
         print('[4] Encerrar operação')
 
         while True:
-            r = int(input(f'[*] Sua resposta > '))
-            match r:
+            match int(input(f'[*] Sua resposta > ')):
                 case 1:
                     for livro in biblioteca.livros:
                         print(f'[|]    {livro.titulo}')
                 case 2:
                     self.formatar_e_exibir_estantes(biblioteca)
+                
                 case 3:
                     livro = self.selecionar_livro(tuple(biblioteca.livros))
 
                     print(f'[+] "{livro.titulo}" selecionado.')
                     if input('[?] Tem certeza que deseja remover esse livro?\n  A ação apenas excluirá o livro de todas as estantes da biblioteca. [y/N] ').strip()[:1].lower() == 'n':
                         biblioteca.remover_livro(
-                            self.auth_user.id, 
+                            self.auth_user,
                             livro.id,
-                            estantes=range(len(biblioteca.estantes) - 1) # todas as prateleiras
+                            estantes=range(len(biblioteca.estantes) - 1) # todas as estantes
                         )
                 
                 case 4:
@@ -325,6 +361,7 @@ class GUICompleto:
                 case _:
                     print('[!] RESPOSTA INVÁLIDA\n')
         print('================================')
+    
     def selecionar_livro(self, livros: tuple[Livro, ...]):
         print('\n==== LIVROS DISPONÍVEIS ====')
         for i, livro in enumerate(livros):
@@ -338,3 +375,12 @@ class GUICompleto:
             print('[!] NÚMERO INVÁLIDO\n')
 
         return livros[n - 1]
+
+def salvar_banco(filename: str):
+    data = {
+        "users": [user.para_json() for user in database.usuarios],
+        "libs": [lib.para_json() for lib in database.bibliotecas],
+        "books": [book.para_json() for book in database.livros],
+    }
+    with open(filename, "w") as file:
+        json.dump(data, file, indent=4)
