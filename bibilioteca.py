@@ -3,7 +3,7 @@ from random import choice
 from string import ascii_lowercase, digits
 from datetime import date
 from subprocess import run
-from typing import Iterable, Callable, Any, Concatenate
+from typing import Iterable, Callable, Any, Concatenate, Sequence
 
 
 class database:
@@ -344,7 +344,7 @@ class UICompleto:
         # mapzinho (o filho dele): separa os dois elementos separados por espaço e converte para inteiro
         K = map(
             lambda s: tuple(map(int, s.split())),
-            input('[*] Insira os números (sintaxe: 0 0,1 1, ...)\n> ').split(',')
+            input('[*] Insira os números (ex: 0 0,1 1, ...)\n> ').split(',')
         )
         biblioteca_selecionada.adicionar_livro(self.auth_user, livro, K) # type: ignore
 
@@ -354,12 +354,14 @@ class UICompleto:
             if livro in estante:
                 print(f"[|] {i + 1}")
     
-    def selecionar_estantes(self, biblioteca: Biblioteca) -> Iterable[int]:
-        while True:
-            K = map(int, input("\n[*] Selecione as estante (cada numero separado por espaco)\n> ").split())
-            if 0 <= min(K) and max(K) <= len(biblioteca.estantes):
-                return K
-            print("[!] UM ÍNDICE ULTRAPASSOU O LIMITE DE ESTANTE") 
+    def selecionar_estantes_e_quantidades(self, biblioteca: Biblioteca) -> Iterable[tuple[int, int]]:
+        # TODO: adicionar um validador para garantir que a entrada seja compativel com a sintaxe
+        return map( # type: ignore
+            lambda s: tuple(map(int, s.split())), 
+            input("\n[*] Selecione as estante (ex: 0 0,1 1)\n> ").split(',')
+        )
+            
+        
     def gerenciar_biblioteca(self):
         print("\n==== CONSULTAR BIBLIOTECA ====")
         print('[+] BIBLIOTECAS DISPONÍVEIS: ')
@@ -394,10 +396,10 @@ class UICompleto:
                 case 2:
                     self.formatar_e_exibir_estantes(biblioteca)
                 case 3:
-                    livro = self.selecionar_livro(biblioteca.livros)
+                    livro = self.selecionar_livro(biblioteca.livros.keys())
                     print(f'[>] "{livro.titulo}" (por {livro.autor.nome})')
                 case 4:
-                    livro = self.selecionar_livro(biblioteca.livros)
+                    livro = self.selecionar_livro(biblioteca.livros.keys())
 
                     print(f'[>] "{livro.titulo}" (por {livro.autor}) selecionado.')
                     if input('[?] Tem certeza que deseja remover esse livro?\n  A ação apenas excluirá o livro de todas as estantes da biblioteca. [y/N] ').strip()[:1].lower() == 'n':
@@ -405,7 +407,7 @@ class UICompleto:
                         biblioteca.remover_livro(
                             self.auth_user,
                             livro,
-                            estantes=self.selecionar_estantes(biblioteca)
+                            estantes_e_quantidades=self.selecionar_estantes_e_quantidades(biblioteca)
                         )
                 
                 case 5:
@@ -414,19 +416,19 @@ class UICompleto:
                     print('[!] RESPOSTA INVÁLIDA\n')
         print('================================')
     
-    def selecionar_livro(self, livros: set[Livro]) -> Livro:
+    def selecionar_livro(self, livros: Iterable[Livro]) -> Livro:
         print('\n==== LIVROS DISPONÍVEIS ====')
         for i, livro in enumerate(livros):
             print(f'[{i}]    {livro.titulo}')
         print('==============================')
-        
+        tupl = tuple(livros)
         while True:
             n = int(input('[*] Número do livro:'))
-            if 0 < n <= len(livros):
+            if 0 < n <= len(tupl):
                 break
             print('[!] NÚMERO INVÁLIDO\n')
 
-        return tuple(livros)[n - 1]
+        return tupl[n - 1]
 
 def salvar_banco(filename: str):
     data = {
@@ -434,5 +436,6 @@ def salvar_banco(filename: str):
         "libs": {id: lib.para_json() for id, lib in database.bibliotecas.items()},
         "books": {id: book.para_json() for id, book in database.livros.items()},
     }
+    
     with open(filename, "w") as file:
         json.dump(data, file, indent=4)
