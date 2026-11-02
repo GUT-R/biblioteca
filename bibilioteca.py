@@ -5,6 +5,7 @@ from datetime import date
 from subprocess import run
 from typing import Iterable, Callable, Any, Concatenate
 
+
 class database:
     usuarios: dict[UsuarioID, Usuario]          = {}
     bibliotecas: dict[BibliotecaID, Biblioteca] = {}
@@ -60,7 +61,7 @@ class Usuario:
         self.livros.add(livro)
         return livro
 
-    def adicionar_livro_a_biblioteca(self, livro: 'Livro', biblioteca: 'Biblioteca', estantes: Iterable[int]):
+    def adicionar_livro_a_biblioteca(self, livro: 'Livro', biblioteca: 'Biblioteca', estantes: Iterable[tuple[int, int]]):
         biblioteca.adicionar_livro(self, livro, estantes)
 
     def modificar_livro(self, livro: 'Livro', pagina: int, conteudo: str):
@@ -84,7 +85,7 @@ class Usuario:
 
 
 class Biblioteca:
-    @staticmethod # Explicacação: 
+    @staticmethod
     def permitir_somente_usuario_autorizado[**P, R](method: Callable[Concatenate['Biblioteca', P], R]) -> Callable[Concatenate['Biblioteca', Usuario, P], R]:
         def callback(self: 'Biblioteca', usuario: Usuario, *args: Any, **kwargs: Any):
             if usuario not in self.usuarios_autorizados:
@@ -97,8 +98,8 @@ class Biblioteca:
         self.id: BibliotecaID = gerar_id()
         self.pertencente = pertencente
         self.usuarios_autorizados = {pertencente}
-        self.livros: set[Livro] = set()
-        self.estantes: list[set[Livro]] = []
+        self.livros: dict[Livro, int] = {}
+        self.estantes: list[dict[Livro, int]] = []
         self.data_de_criacao = agorinha()
         self.data_de_atualizacao = agorinha()
 
@@ -110,20 +111,82 @@ class Biblioteca:
             print(livro.titulo)
 
     @permitir_somente_usuario_autorizado
-    def adicionar_livro(self, livro: 'Livro', estantes: Iterable[int]):
-        self.livros.add(livro)
-        for i in estantes:
+    def adicionar_livro(self, livro: 'Livro', estantes_e_quantidade: Iterable[tuple[int, int]]):
+        """Adiciona o livro em várias estantes. Para cada estante, a quantidade de livros deve ser específica.
+        
+        Exemplo: Quero adicionar 2 livros na estante 4, 3 livros na estante 6 e 9 livros na estante 1.
+        >>> estantes_e_quantidade=[
+            (4, 2),
+            (6, 3),
+            (1, 9),
+        ]
+        """
+        # Pega o total da quantidade de livros em cada estante. Esse total é o total de livros em toda a biblioteca
+        self.livros[livro] = sum(E_e_Q[1] for E_e_Q in estantes_e_quantidade)
+        
+        for i, q in estantes_e_quantidade:
             estante = self.estantes[i]
-            estante.add(livro)
+            if q < 0:
+                raise ValueError("Tentando adicionar um número negativo de livros?")
+            
+            if livro in estante:
+                estante[livro] += q
+            else:
+                estante[livro] = q
     
     @permitir_somente_usuario_autorizado
-    def remover_livro(self, livro: 'Livro', estantes: Iterable[int]):
-        if len(set(estantes)) == len(self.estantes):
-            self.livros.remove(livro)
+    def remover_livro(self, livro: 'Livro', estantes_e_quantidades: Iterable[tuple[int, int]]):
+        """Remove o livro em várias estantes. Para cada estante, a quantidade de livros a ser removidos deve ser específica.
+        \nDetalhe:
         
-        for i in estantes:
+        1. Se a quantidade de livros removidos for igual a quantidade de livros presentes, a chave que contém o livro é apagada, ou seja o sistema declara que aquele livro não existe mais na estante.
+        2. Se todas as estantes não posssuirem mais o livro, o sistema declara que a própria biblioteca não o possui mais. O sistema faz isso somando a quantidade removida em cada estante e subtrai da quantidade atual e compara se esse valor é menor que 0.
+        
+        \nExemplo: Quero remover 2 livros na estante 4, 3 livros na estante 6 e 9 livros na estante 1.
+        
+        >>> estantes = [
+        0:    {livro: 10}
+        1:    {livro: 10}
+        2:    {livro: 10}
+        3:    {...}
+        4:    {livro: 10}
+        \n]
+        
+        >>> blib.remover_livro(
+            meu_usuario,
+            livro,
+            estantes_e_quantidade)=[
+                (1, 2),
+                (4, 3),
+                (2, 9),
+            ]
+        
+        \nResultado:
+        >>> [
+        0:    {livro: 10}
+        1:    {livro: 8}
+        2:    {livro: 1}
+        3:    {...}
+        4:    {livro: 7}
+        \n]
+        """
+        for i, q in estantes_e_quantidades:
             estante = self.estantes[i]
-            estante.remove(livro)
+            if q < 0:
+                raise ValueError("Impossivel remover um número negativo de livros.")
+            if estante[livro] - q < 0:
+                raise ValueError("Impossível tirar mais livros do que a estante possui")
+            
+            estante[livro] -= q
+            if estante[livro] == 0:
+                estante.pop(livro) # apaga o livro completamente da estante
+
+        # Defalhe: 
+        total_removido = sum(x[1] for x in estantes_e_quantidades)
+        self.livros[livro] -= total_removido
+        if self.livros[livro] < 0:
+            self.livros.pop(livro)
+
     
     @permitir_somente_usuario_autorizado
     def renomear_biblioteca(self, novo_nome: str):
@@ -139,8 +202,8 @@ class Biblioteca:
         return {
             "id": self.id,
             "nome": self.nome,
-            "livros": [livro.id for livro in self.livros],
-            "estantes": [[livro.id for livro in estante]
+            "livros": {livro.id: q for livro, q in self.livros.items()},
+            "estantes": [{livro.id: q for livro, q in estante.items()}
                          for estante in self.estantes],
             "pertencente": self.pertencente.id,
             "usuarios_autorizados": [usuario.id for usuario in self.usuarios_autorizados],
@@ -275,9 +338,15 @@ class UICompleto:
         self.formatar_e_exibir_estantes(biblioteca_selecionada)
         print('====================')
 
-        print('[?] Em quais estantes deseja adicionar seu livro?')
-        K = map(int, input('[*] Insira os números (separando por espaço) > ').split())
-        biblioteca_selecionada.adicionar_livro(self.auth_user, livro, K)
+        print('[?] Em quais estantes deseja adicionar quantos do seu livro?')
+
+        # map: separa cada relação estante/quantidade
+        # mapzinho (o filho dele): separa os dois elementos separados por espaço e converte para inteiro
+        K = map(
+            lambda s: tuple(map(int, s.split())),
+            input('[*] Insira os números (sintaxe: 0 0,1 1, ...)\n> ').split(',')
+        )
+        biblioteca_selecionada.adicionar_livro(self.auth_user, livro, K) # type: ignore
 
     def exibir_estantes_que_contem_livro(self, biblioteca: Biblioteca, livro: Livro):
         print("\n[•] O livro aparece nas seguintes estantes:")
@@ -290,8 +359,7 @@ class UICompleto:
             K = map(int, input("\n[*] Selecione as estante (cada numero separado por espaco)\n> ").split())
             if 0 <= min(K) and max(K) <= len(biblioteca.estantes):
                 return K
-            print("[!] UM ÍNDICE ULTRAPASSOU O LIMITE DE ESTANTE")
-            
+            print("[!] UM ÍNDICE ULTRAPASSOU O LIMITE DE ESTANTE") 
     def gerenciar_biblioteca(self):
         print("\n==== CONSULTAR BIBLIOTECA ====")
         print('[+] BIBLIOTECAS DISPONÍVEIS: ')
