@@ -3,7 +3,7 @@ from random import choice
 from string import ascii_lowercase, digits
 from datetime import date
 from subprocess import run
-from typing import Iterable, Callable, Any, Concatenate, Sequence
+from typing import Iterable, Callable, Any, Concatenate, Optional
 
 
 class database:
@@ -307,12 +307,11 @@ class UICompleto:
             self.adicionar_livro_a_biblioteca(livro)
         
         return livro
-
     
     def formatar_e_exibir_estantes(self, biblioteca: Biblioteca):
         for i in range(len(biblioteca.estantes) - 1):
             livros_quantidade = len(biblioteca.estantes[i])                
-            print(f'[{i}] |', "/" * livros_quantidade, end=' ')
+            print(f'[{i + 1}] |', "/" * livros_quantidade, end=' ')
 
             if livros_quantidade > 1:
                 print(f'({livros_quantidade} livros)', end='')
@@ -352,14 +351,10 @@ class UICompleto:
         print("\n[•] O livro aparece nas seguintes estantes:")
         for i, estante in enumerate(biblioteca.estantes):
             if livro in estante:
-                print(f"[|] {i + 1}")
+                quantidade = estante[livro]
+                # [1] ////// (6)
+                print(f"[{i + 1}]", "/" * quantidade, f"({quantidade})")
     
-    def selecionar_estantes_e_quantidades(self, biblioteca: Biblioteca) -> Iterable[tuple[int, int]]:
-        # TODO: adicionar um validador para garantir que a entrada seja compativel com a sintaxe
-        return map( # type: ignore
-            lambda s: tuple(map(int, s.split())), 
-            input("\n[*] Selecione as estante (ex: 0 0,1 1)\n> ").split(',')
-        )
     def selecionar_biblioteca(self, bibliotecas: Iterable[Biblioteca]):
         print("[+] BIBLIOTECAS:")
         for i, biblioteca in enumerate(bibliotecas):
@@ -378,20 +373,35 @@ class UICompleto:
     
     def visitar_biblioteca(self):
         print("\n==== VISITAR BIBLIOTECA ====")
-        print(  "============================")
         b = self.selecionar_biblioteca(database.bibliotecas.values())
         
         print("[?] O quê deseja fazer?")
         print("[1] Listar livros")
         print("[2] Listar estantes")
         print("[3] Ler um livro")
-        print("[4] Pedir livro/s emprestado/s")
-        print("[5] Devolver livro/s emprestado/s")
-        print("[6] Encerrar")
+        print("[4] Encerrar")
+        while True:
+            match int(input("[*] Escolha > ")):
+                case 1:
+                    for livro, tot in b.livros.items():
+                        print(f"[|] {livro.titulo} por {livro.autor.nome} (total: {tot})")
+                case 2:
+                    self.formatar_e_exibir_estantes(b)
+                case 3:
+                    livro = self.selecionar_livro(b.livros.keys())
+                    filename = f"{livro.id}#{livro.autor.id}.txt"
+                    with open(filename, "w") as file:
+                        file.write(('\n' + ('=' * 100) + '\n').join(livro.conteudo))
+                        print("[x] feche o arquivo para concluir a leitura.")
+                        run(f'notepad.exe {filename}')
+                case 4:
+                    break
+                case _:
+                    pass
+        print(  "============================")
         
     def gerenciar_biblioteca(self):
         print("\n==== GERENCIAR BIBLIOTECA ====")
-        print(  '==============================')
         b = self.selecionar_biblioteca(
             self.auth_user.bibliotecas | self.auth_user.bibliotecas_externas
         )
@@ -410,38 +420,73 @@ class UICompleto:
                 case 2:
                     self.formatar_e_exibir_estantes(b)
                 case 3:
-                    livro = self.selecionar_livro(b.livros.keys())
+                    self.formatar_e_exibir_estantes(b)
+                    livro = self.selecionar_livro(database.livros.values())
                     print(f'[>] "{livro.titulo}" (por {livro.autor.nome})')
+                    estantes_e_quantidades = self.selecionar_estantes_e_quantidades(b)
+                    b.adicionar_livro(self.auth_user, livro, estantes_e_quantidades)
                 case 4:
+                    self.formatar_e_exibir_estantes(b)
                     livro = self.selecionar_livro(b.livros.keys())
-
                     print(f'[>] "{livro.titulo}" (por {livro.autor}) selecionado.')
                     if input('[?] Tem certeza que deseja remover esse livro?\n  A ação apenas excluirá o livro de todas as estantes da biblioteca. [y/N] ').strip()[:1].lower() == 'n':
                         self.exibir_estantes_que_contem_livro(b, livro)
                         b.remover_livro(
                             self.auth_user,
                             livro,
-                            estantes_e_quantidades=self.selecionar_estantes_e_quantidades(b)
+                            estantes_e_quantidades=self.selecionar_estantes_e_quantidades(
+                                b, estantes_validas=(i for i, estante in enumerate(b.estantes) if livro in estante)
+                            )
                         )
                 
                 case 5:
                     break
                 case _:
                     print('[!] RESPOSTA INVÁLIDA\n')
+        print(  '==============================')
     
-    def selecionar_livro(self, livros: Iterable[Livro]) -> Livro:
-        print('\n==== LIVROS DISPONÍVEIS ====')
-        for i, livro in enumerate(livros):
-            print(f'[{i}]    {livro.titulo}')
-        print('==============================')
-        tupl = tuple(livros)
+    def selecionar_estantes(self, biblioteca: Biblioteca, numeros_validos: Optional[Iterable[int]]=None):
+        estantes: set[int] = set()
+        estante_valida: Callable[[int], bool] = lambda x: 0 < x <= len(biblioteca.estantes)
         while True:
-            n = int(input('[*] Número do livro:'))
-            if 0 < n <= len(tupl):
-                break
-            print('[!] NÚMERO INVÁLIDO\n')
+            e = int(input("[*] Escolha uma estante (-1 para encerrar) > "))
+            if e <= -1:
+                if len(estantes) == 0:
+                    print("[!] VOCÊ NÃO INSERIU NENHUMA ESTANTE\n")
+                    continue
+                return estantes
+            if not estante_valida(e):
+                print("[!] ÍNDICE INVÁLIDO\n")
+                continue
+            if numeros_validos:
+                if e not in numeros_validos:
+                    print("[!] NÚMERO NÃO PERTENCE AO CONJUNTO DE VALORES VÁLIDOS\n")
+                    continue
+            estantes.add(e - 1)
+      
+    def selecionar_quantidades(self, estantes: Iterable[int]):
+        relacoes: list[tuple[int, int]] = []
+        for e in estantes:
+            relacoes.append((
+                e,
+                int(input(f"[*] Estante {e} > "))
+            ))
+        return relacoes
+    
+    def selecionar_estantes_e_quantidades(self, biblioteca: Biblioteca, estantes_validas: Optional[Iterable[int]]=None):
+        return self.selecionar_quantidades(self.selecionar_estantes(biblioteca, estantes_validas))
 
-        return tupl[n - 1]
+    def selecionar_livro(self, universo: Iterable[Livro]):
+        for i, livro in enumerate(universo):
+            print(f"[{i + 1}] {livro.titulo} ({livro.autor.nome}")
+        print()
+        
+        universo = tuple(universo)
+        while True:
+            k = int(input("[*] Selecione o índice > "))
+            if 0 < k <= len(universo):
+                return universo[k - 1]
+            print("[!] ÍNDICE INVÁLIDO\n")
 
 def salvar_banco(filename: str):
     data = {
