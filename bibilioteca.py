@@ -360,27 +360,41 @@ class UICompleto:
             lambda s: tuple(map(int, s.split())), 
             input("\n[*] Selecione as estante (ex: 0 0,1 1)\n> ").split(',')
         )
-            
+    def selecionar_biblioteca(self, bibliotecas: Iterable[Biblioteca]):
+        print("[+] BIBLIOTECAS:")
+        for i, biblioteca in enumerate(bibliotecas):
+            print(f"[{i+1}]    {biblioteca.nome} (de {biblioteca.pertencente.nome})")
+        bibliotecas = tuple(bibliotecas)
+        while True:
+            N = int(input("\n[*] Insira o número da biblioteca > "))
+            if 0 < N <= len(bibliotecas):
+                break
+            print("[!] ÍNDICE INVÁLIDO")
+
+        biblioteca = bibliotecas[N - 1]
+        
+        print(f'[>] Biblioteca selecionada: {biblioteca.nome}')
+        return biblioteca
+    
+    def visitar_biblioteca(self):
+        print("\n==== VISITAR BIBLIOTECA ====")
+        print(  "============================")
+        b = self.selecionar_biblioteca(database.bibliotecas.values())
+        
+        print("[?] O quê deseja fazer?")
+        print("[1] Listar livros")
+        print("[2] Listar estantes")
+        print("[3] Ler um livro")
+        print("[4] Pedir livro/s emprestado/s")
+        print("[5] Devolver livro/s emprestado/s")
+        print("[6] Encerrar")
         
     def gerenciar_biblioteca(self):
-        print("\n==== CONSULTAR BIBLIOTECA ====")
-        print('[+] BIBLIOTECAS DISPONÍVEIS: ')
-        for i, biblioteca in enumerate(database.bibliotecas.values()):
-            print(f'[{i+1}]    {biblioteca.nome}')
-        print()
-
-        while True:
-            biblioteca_numero = int(input('[*] Insira o número da biblioteca > '))
-
-            if 0 < biblioteca_numero <= len(database.bibliotecas):
-                break
-
-            print('[!] NÚMERO INVÁLIDO\n')
-
-        biblioteca = tuple(database.bibliotecas.values())[biblioteca_numero - 1]
-
-        print(f'[>] Biblioteca selecionada: {biblioteca.nome}')
-
+        print("\n==== GERENCIAR BIBLIOTECA ====")
+        print(  '==============================')
+        b = self.selecionar_biblioteca(
+            self.auth_user.bibliotecas | self.auth_user.bibliotecas_externas
+        )
         print(f'[?] O que deseja fazer?')
         print('[1] Listar livros')
         print('[2] Listar estantes')
@@ -391,30 +405,29 @@ class UICompleto:
         while True:
             match int(input(f'[*] Sua resposta > ')):
                 case 1:
-                    for livro in biblioteca.livros:
+                    for livro in b.livros:
                         print(f'[|]    {livro.titulo}')
                 case 2:
-                    self.formatar_e_exibir_estantes(biblioteca)
+                    self.formatar_e_exibir_estantes(b)
                 case 3:
-                    livro = self.selecionar_livro(biblioteca.livros.keys())
+                    livro = self.selecionar_livro(b.livros.keys())
                     print(f'[>] "{livro.titulo}" (por {livro.autor.nome})')
                 case 4:
-                    livro = self.selecionar_livro(biblioteca.livros.keys())
+                    livro = self.selecionar_livro(b.livros.keys())
 
                     print(f'[>] "{livro.titulo}" (por {livro.autor}) selecionado.')
                     if input('[?] Tem certeza que deseja remover esse livro?\n  A ação apenas excluirá o livro de todas as estantes da biblioteca. [y/N] ').strip()[:1].lower() == 'n':
-                        self.exibir_estantes_que_contem_livro(biblioteca, livro)
-                        biblioteca.remover_livro(
+                        self.exibir_estantes_que_contem_livro(b, livro)
+                        b.remover_livro(
                             self.auth_user,
                             livro,
-                            estantes_e_quantidades=self.selecionar_estantes_e_quantidades(biblioteca)
+                            estantes_e_quantidades=self.selecionar_estantes_e_quantidades(b)
                         )
                 
                 case 5:
                     break
                 case _:
                     print('[!] RESPOSTA INVÁLIDA\n')
-        print('================================')
     
     def selecionar_livro(self, livros: Iterable[Livro]) -> Livro:
         print('\n==== LIVROS DISPONÍVEIS ====')
