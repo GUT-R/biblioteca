@@ -539,4 +539,6 @@ def salvar_banco(filename: str):
         json.dump(data, file, indent=4)
 
 def main():
-    ...
+    UICompleto()
+
+main()
