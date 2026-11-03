@@ -136,39 +136,43 @@ class Biblioteca:
     
     @permitir_somente_usuario_autorizado
     def remover_livro(self, livro: 'Livro', estantes_e_quantidades: Iterable[tuple[int, int]]):
-        """Remove o livro em várias estantes. Para cada estante, a quantidade de livros a ser removidos deve ser específica.
-        \nDetalhe:
+        """# Remove o livro em várias estantes. Para cada estante, a quantidade de livros a ser removidos deve ser específica.
+        
+        * ## Detalhe:
         
         1. Se a quantidade de livros removidos for igual a quantidade de livros presentes, a chave que contém o livro é apagada, ou seja o sistema declara que aquele livro não existe mais na estante.
         2. Se todas as estantes não posssuirem mais o livro, o sistema declara que a própria biblioteca não o possui mais. O sistema faz isso somando a quantidade removida em cada estante e subtrai da quantidade atual e compara se esse valor é menor que 0.
         
-        \nExemplo: Quero remover 2 livros na estante 4, 3 livros na estante 6 e 9 livros na estante 1.
+        * ## Exemplo: 
+        >>> estantes: [
+        ...    {livro: 10}, # 0
+        ...    {livro: 10}, # 1
+        ...    {livro: 10}, # 2
+        ...    {...}, # 3 (não contém o livro)
+        ...    {livro: 10}, # 4
+        ... ]
         
-        >>> estantes = [
-        0:    {livro: 10}
-        1:    {livro: 10}
-        2:    {livro: 10}
-        3:    {...}
-        4:    {livro: 10}
-        \n]
+        ### Quero remover 2 livros na estante 4, 3 livros na estante 6 e 9 livros na estante 1.
+        
         
         >>> blib.remover_livro(
-            meu_usuario,
+            meu_usuario, # usuário autorizado
             livro,
             estantes_e_quantidade)=[
                 (1, 2),
                 (4, 3),
                 (2, 9),
             ]
+        )
         
-        \nResultado:
+        Resultado:
         >>> [
-        0:    {livro: 10}
-        1:    {livro: 8}
-        2:    {livro: 1}
-        3:    {...}
-        4:    {livro: 7}
-        \n]
+        ...    {livro: 10},
+        ...    {livro: 8},
+        ...    {livro: 1},
+        ...    {...},
+        ...    {livro: 7},
+        ... ]
         """
         for i, q in estantes_e_quantidades:
             estante = self.estantes[i]
