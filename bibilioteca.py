@@ -282,6 +282,7 @@ class UICompleto:
         nome = input('[*] Nome: ')
         print('======== FIM :D =======')
         self.auth_user = Usuario(nome)
+        self.interface()
 
     def criar_uma_biblioteca(self):
         print('\n==== CRIE UMA BIBILIOTECA ====')
@@ -503,6 +504,29 @@ class UICompleto:
             if 0 < k <= len(universo):
                 return universo[k - 1]
             print("[!] ÍNDICE INVÁLIDO\n")
+    
+    def interface(self):
+        print("O que deseja fazer?")
+
+        print('[1] Visitar biblioteca')
+        print('[2] Criar um livro')
+        print('[3] Fundar uma biblioteca')
+        print('[4] Gerenciar sua biblioteca')
+        print('[5] Encerrar')
+        while True:
+            match int(input('[*] Sua resposta > ')):
+                case 1:
+                    self.visitar_biblioteca()
+                case 2:
+                    self.criar_um_livro()
+                case 3:
+                    self.criar_uma_biblioteca()
+                case 4:
+                    self.gerenciar_biblioteca()
+                case 5:
+                    break
+                case _:
+                    pass
 
 def salvar_banco(filename: str):
     data = {
@@ -513,3 +537,6 @@ def salvar_banco(filename: str):
     
     with open(filename, "w") as file:
         json.dump(data, file, indent=4)
+
+def main():
+    ...
