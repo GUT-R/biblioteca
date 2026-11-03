@@ -523,7 +523,7 @@ class UICompleto:
             estantes.add(e - 1)
             i += 1
             if i > _max:
-                break
+                return estantes
       
     def selecionar_quantidades(self, estantes: Iterable[int], error_prompt: str):
         if not estantes:
@@ -540,7 +540,7 @@ class UICompleto:
     
     def selecionar_estantes_e_quantidades(self, biblioteca: Biblioteca, estantes_validas: Optional[Iterable[int]]=None):
         return self.selecionar_quantidades(
-            self.selecionar_estantes(biblioteca, estantes_validas),
+            self.selecionar_estantes(biblioteca, estantes_validas, not_in_valid_numbers_msg="Esse índice não foi listado"),
             error_prompt=f"Ainda não existem estantes na biblioteca {blue}{biblioteca.nome}{res}"
         )
 
