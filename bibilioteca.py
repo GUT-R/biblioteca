@@ -24,6 +24,14 @@ type UsuarioID = ID
 type BibliotecaID = ID
 type LivroID = ID
 
+
+red = '\033[31m'
+green = '\033[32m'
+yellow = '\033[33m'
+blue = '\033[34m'
+black = '\033[90m'
+res = '\033[0m'
+
 def gerar_id() -> ID:
     return ''.join(choice(ascii_lowercase + digits) for _ in range(8))
 
@@ -125,13 +133,29 @@ class Biblioteca:
     
     @permitir_somente_usuario_autorizado
     def adicionar_livro(self, livro: 'Livro', estantes_e_quantidade: Iterable[tuple[int, int]]):
-        """Adiciona o livro em várias estantes. Para cada estante, a quantidade de livros deve ser específica.
+        """# Adiciona o livro em várias estantes. Para cada estante, a quantidade de livros deve ser específica.
         
-        Exemplo: Quero adicionar 2 livros na estante 4, 3 livros na estante 6 e 9 livros na estante 1.
-        >>> estantes_e_quantidade=[
-            (4, 2),
-            (6, 3),
-            (1, 9),
+        ### Exemplo: Quero adicionar 2 livros na estante 4, 3 livros na estante 6 e 9 livros na estante 1.
+        estantes: [{}, {}, {}, {}, {}, {}, {}]
+        >>> blib.adicionar_livro(
+        ...    meu_usuario,
+        ...    livro, 
+        ...    [
+        ...        (4, 2),
+        ...        (6, 3),
+        ...        (1, 9),
+        ...    ]
+        ...)
+
+        estantes (resultado): [
+            {},
+            {livro: 9},
+            {},
+            {},
+            {livro: 2},
+            {},
+            {},
+            {livro: 3},
         ]
         """
         # Pega o total da quantidade de livros em cada estante. Esse total é o total de livros em toda a biblioteca
@@ -285,130 +309,143 @@ class Livro:
 class UICompleto:
     def __init__(self):
         print('\n==== REGISTRE-SE ====')
-        nome = input('[*] Nome: ')
-        print('=======================')
+        nome = input(f'{red}*{res} Seu nome: ')
         self.auth_user = Usuario(nome)
+        print('=====================')
         self.interface()
 
     def criar_uma_biblioteca(self):
         print('\n==== CRIE UMA BIBILIOTECA ====')
 
-        biblioteca = self.auth_user.cadastrar_biblioteca(input('[*] Nome da sua biblioteca: '))
-        biblioteca.adicionar_estantes(self.auth_user, int(input('[*] Quantas estantes sua biblioteca terá?')))
+        biblioteca = self.auth_user.cadastrar_biblioteca(input('Nome da sua biblioteca: '))
+        biblioteca.adicionar_estantes(self.auth_user, int(input('Quantas estantes sua biblioteca terá? > ')))
+
+        if len(database.usuarios) <= 1: # Só existe um usuário em todo o banco. Não faz sentido pedir para autorizar "outros"
+            return None
         query_name = {user.nome: user for user in database.usuarios.values()}
-        if input('\nDeseja autorizar mais usuários a modificar sua biblioteca? [y/N]: ').strip()[:1].lower() == 'y':
+        if input(f'\nDeseja autorizar mais usuários a modificar sua biblioteca? {black}[y/N]{black}: ').strip()[:1].lower() == 'y':
             while True:
-                nome = input('[*] Insira o nome: ').strip()
+                nome = input('Nome: ').strip()
                 usuario = query_name.get(nome)
 
                 if usuario is None:
-                    print('[!] Usuário não existe.')
+                    print(f'{red}⚠{res} Usuário não existe.')
                     continue
 
                 biblioteca.autorizar_usuario(self.auth_user, usuario)
 
-                if input('Adicionar outro? [y/N]: ').strip()[:1].lower() != 'y':
+                if input(f'Adicionar outro? {black}[y/N]{black}: ').strip()[:1].lower() != 'y':
                     break
+                print()
 
     def criar_um_livro(self) -> Livro | None:
         # TODO: Implementar um editor de texto integrado tipo o vim
         print('\n==== CRIAR LIVRO ====')
-        print('[LOL] Ainda não fiz um editor de texto integrado.')
+        print(f'{blue}[LOL] Ainda não fiz um editor de texto integrado.{res}')
 
-        if input('Deseja continuar com bloco de notas? [y/N] ').strip()[:1].lower() != 'y':
+        if input(f'Deseja continuar com bloco de notas? {black}[y/N]{res}: ').strip()[:1].lower() != 'y':
             return
-
         
         titulo = input('Titulo: ')
-        print('[x] Feche a janela para concluir o livro.')
-        with open('temp.txt', 'w+') as arquivo:
-            run(rf'notepad.exe temp.txt')
+        print(f'{blue}🛈{res} Você pode separar as páginas adicionando 2 linhas de espaço.')
+        print(f'{red}x{res} Feche a janela para concluir o livro.')
+        run(rf'notepad.exe temp.txt')
+        with open('temp.txt', 'r') as arquivo:
             paginas = arquivo.read().split('\n\n\n')
 
         livro = self.auth_user.cadastrar_livro(titulo, paginas)
         
-        if input('\nAdicionar livro a alguma biblioteca? [y/N] ').strip()[:1].lower() == 'y':
+        if input(f'\nAdicionar livro a alguma biblioteca? {black}[y/N]{res}: ').strip()[:1].lower() == 'y':
             self.adicionar_livro_a_biblioteca(livro)
         
         return livro
     
     def formatar_e_exibir_estantes(self, biblioteca: Biblioteca):
-        for i in range(len(biblioteca.estantes) - 1):
-            livros_quantidade = len(biblioteca.estantes[i])                
-            print(f'[{i + 1}] |', "/" * livros_quantidade, end=' ')
+        print('\n----- ESTANTES -----')
+        for i in range(len(biblioteca.estantes)):
+            livros_quantidade = sum(biblioteca.estantes[i].values())                
+            print(f'{i + 1}. ', ("/" * livros_quantidade), end=' ')
 
             if livros_quantidade > 1:
                 print(f'({livros_quantidade} livros)', end='')
             print()
+        print('---------------------')
     
     def adicionar_livro_a_biblioteca(self, livro: Livro):
         bibliotecas_do_usuario = tuple(self.auth_user.bibliotecas | self.auth_user.bibliotecas_externas)
+        
         if len(bibliotecas_do_usuario) == 0:
-            print("[!] I'm sorry, mas você não possui e não é autorizado em nenhuma biblioteca.")
+            print("I'm sorry, mas você não possui e não é autorizado em nenhuma biblioteca.")
             return None
         biblioteca_selecionada = self.selecionar_biblioteca(bibliotecas_do_usuario)
 
         if len(biblioteca_selecionada.estantes) == 0:
-            print('[!] A biblioteca não possui estantes.')
-            if input('[*] Deseja adicionar por conta própria? [y/N]').strip()[:1].lower() == 'y':
-                biblioteca_selecionada.adicionar_estantes(self.auth_user, int(input('[*] Insira o novo número de estantes > ')))
-        
-        print('\n==== ESTANTES ====')
+            print(f'{blue}⚠{res} A biblioteca não possui estantes.')
+            if input(f'Deseja adicionar por conta própria? {black}[y/N]{res}: ').strip()[:1].lower() == 'y':
+                biblioteca_selecionada.adicionar_estantes(
+                    self.auth_user, int(input('Insira o novo número de estantes > '))
+                )
         self.formatar_e_exibir_estantes(biblioteca_selecionada)
-        print('====================')
 
-        print('[?] Em quais estantes deseja adicionar quantos do seu livro?')
+        print('Em quais estantes deseja adicionar quantos do seu livro?')
         biblioteca_selecionada.adicionar_livro(self.auth_user, livro, self.selecionar_estantes_e_quantidades(biblioteca_selecionada))
 
     def exibir_estantes_que_contem_livro(self, biblioteca: Biblioteca, livro: Livro):
-        print("\n[•] O livro aparece nas seguintes estantes:")
+        print("\n---- ESTANTES ----")
         for i, estante in enumerate(biblioteca.estantes):
             if livro in estante:
                 quantidade = estante[livro]
-                # [1] ////// (6)
-                print(f"[{i + 1}]", "/" * quantidade, f"({quantidade})")
+                # 1 | //// (4)
+                print(f"{i + 1} |", "/" * quantidade, f"({quantidade})")
+        print("------------------")
     
-    def selecionar_biblioteca(self, bibliotecas: Iterable[Biblioteca]):
+    def selecionar_biblioteca(self, bibliotecas: Iterable[Biblioteca], empty_msg: str="Não há bibliotecas"):
         if not bibliotecas:
-            raise Exception('[!] Não há bibliotecas')
+            raise Exception(empty_msg)
         
-        print("[+] BIBLIOTECAS:")
+        print("\n---- Bibliotecas ----")
         for i, biblioteca in enumerate(bibliotecas):
-            print(f"[{i+1}]    {biblioteca.nome} (de {biblioteca.pertencente.nome})")
+            print(f"{i+1}.    {biblioteca.nome}")
+        print("---------------------")
+        
         bibliotecas = tuple(bibliotecas)
+        
         while True:
-            N = int(input("\n[*] Insira o número da biblioteca > "))
+            N = int(input("\nInsira o índice da biblioteca > "))
             if 0 < N <= len(bibliotecas):
                 break
-            print("[!] ÍNDICE INVÁLIDO")
+            print(f"{red}⚠{res} Índice inválido")
 
         biblioteca = bibliotecas[N - 1]
         
-        print(f'[>] Biblioteca selecionada: {biblioteca.nome}')
+        print(f'[>] Biblioteca selecionada: {blue}{biblioteca.nome}{res}')
         return biblioteca
     
     def visitar_biblioteca(self):
         b = self.selecionar_biblioteca(database.bibliotecas.values())
         print("\n==== VISITAR BIBLIOTECA ====")
-        print("[?] O quê deseja fazer?")
-        print("[1] Listar livros")
-        print("[2] Listar estantes")
-        print("[3] Ler um livro")
-        print("[4] Encerrar")
         while True:
-            match int(input("[*] Escolha > ")):
+            print("\nO quê deseja fazer?")
+            print("[1] Listar livros")
+            print("[2] Listar estantes")
+            print("[3] Ler um livro")
+            print("[4] Encerrar")
+            match int(input("Escolha > ")):
                 case 1:
                     for livro, tot in b.livros.items():
-                        print(f"[|] {livro.titulo} por {livro.autor.nome} (total: {tot})")
+                        print(f"[|] {livro.titulo} {black}por: {livro.autor.nome}{res} (total: {tot})")
                 case 2:
                     self.formatar_e_exibir_estantes(b)
                 case 3:
-                    livro = self.selecionar_livro(b.livros.keys())
+                    if len(b.livros) == 0:
+                        print(f'{red}🛈{res} Infelizmente a biblioteca está vazia.')
+                        continue
+                    livro = self.selecionar_livro(b.livros.keys(), error_msg="A biblioteca não possui nenhum livro.")
                     filename = f"{livro.id}#{livro.autor.id}.txt"
                     with open(filename, "w") as file:
                         file.write(('\n' + ('=' * 100) + '\n').join(livro.conteudo))
-                        print("[x] feche o arquivo para concluir a leitura.")
-                        run(f'notepad.exe {filename}')
+                    print("[x] feche o arquivo para concluir a leitura.")
+                    run(f'notepad.exe {filename}')
                 case 4:
                     break
                 case _:
@@ -416,35 +453,34 @@ class UICompleto:
         print(  "============================")
         
     def gerenciar_biblioteca(self):
-        print("\n==== GERENCIAR BIBLIOTECA ====")
         b = self.selecionar_biblioteca(
             self.auth_user.bibliotecas | self.auth_user.bibliotecas_externas
         )
-        print(f'[?] O que deseja fazer?')
-        print('[1] Listar livros')
-        print('[2] Listar estantes')
-        print("[3] Adicionar um livro")
-        print('[4] Remover um livro')
-        print('[5] Encerrar operação')
-
+        print("\n==== GERENCIAR BIBLIOTECA ====")
         while True:
-            match int(input(f'[*] Sua resposta > ')):
+            print(f'\nO que deseja fazer?')
+            print('[1] Listar livros')
+            print('[2] Listar estantes')
+            print("[3] Adicionar um livro")
+            print('[4] Remover um livro')
+            print('[5] Encerrar operação')
+            match int(input(f'Opção > ')):
                 case 1:
                     for livro in b.livros:
-                        print(f'[|]    {livro.titulo}')
+                        print(f'[|]    {livro.titulo} {black}({livro.autor.nome}){res}')
                 case 2:
                     self.formatar_e_exibir_estantes(b)
                 case 3:
+                    livro = self.selecionar_livro(database.livros.values(), error_msg="Nenhum livro foi públicado no sistema.")
+                    print(f'[>] Livro "{blue}{livro.titulo}{res}" (por: {livro.autor.nome}) selecionado')
                     self.formatar_e_exibir_estantes(b)
-                    livro = self.selecionar_livro(database.livros.values())
-                    print(f'[>] "{livro.titulo}" (por {livro.autor.nome})')
                     estantes_e_quantidades = self.selecionar_estantes_e_quantidades(b)
                     b.adicionar_livro(self.auth_user, livro, estantes_e_quantidades)
                 case 4:
                     self.formatar_e_exibir_estantes(b)
-                    livro = self.selecionar_livro(b.livros.keys())
-                    print(f'[>] "{livro.titulo}" (por {livro.autor}) selecionado.')
-                    if input('[?] Tem certeza que deseja remover esse livro?\n  A ação apenas excluirá o livro de todas as estantes da biblioteca. [y/N] ').strip()[:1].lower() == 'n':
+                    livro = self.selecionar_livro(b.livros.keys(), error_msg="A biblioteca selecionada ainda não possui livros.")
+                    print(f'[>] "{blue}{livro.titulo}{res}" (por: {livro.autor.nome}) selecionado.')
+                    if input(f'Tem certeza que deseja remover esse livro? {black}[y/N]{res}: ').strip()[:1].lower() == 'y':
                         self.exibir_estantes_que_contem_livro(b, livro)
                         b.remover_livro(
                             self.auth_user,
@@ -457,60 +493,80 @@ class UICompleto:
                 case 5:
                     break
                 case _:
-                    print('[!] RESPOSTA INVÁLIDA\n')
+                    print(f'{red}⚠{res} Resposta inálida')
         print(  '==============================')
     
-    def selecionar_estantes(self, biblioteca: Biblioteca, numeros_validos: Optional[Iterable[int]]=None):
+    def selecionar_estantes(self, biblioteca: Biblioteca, numeros_validos: Optional[Iterable[int]]=None, not_in_valid_numbers_msg: str=""):
         estantes: set[int] = set()
         estante_valida: Callable[[int], bool] = lambda x: 0 < x <= len(biblioteca.estantes)
+
+        _max = len(tuple(numeros_validos)) if numeros_validos is not None else len(biblioteca.estantes)
+        i = 1
+        print('\nInsira as estantes:', end='') # A linha já vai ser quebrada denovo no input. Não quero fazer duas quebras
         while True:
-            e = int(input("[*] Escolha uma estante (-1 para encerrar) > "))
+            e = int(input(f"\nEstante {i}/{_max} (insira -1 para encerrar) > "))
             if e <= -1:
                 if len(estantes) == 0:
-                    print("[!] VOCÊ NÃO INSERIU NENHUMA ESTANTE\n")
+                    print(f"{red}⚠{res} Você não inseriu nenhuma estante")
                     continue
                 return estantes
             if not estante_valida(e):
-                print("[!] ÍNDICE INVÁLIDO\n")
+                print(f"{red}⚠{res} Índice inválido.")
                 continue
             if numeros_validos:
                 if e not in numeros_validos:
-                    print("[!] NÚMERO NÃO PERTENCE AO CONJUNTO DE VALORES VÁLIDOS\n")
+                    print(not_in_valid_numbers_msg)
                     continue
+            if e in estantes:
+                print(f"{red}⚠{res} Você já inseriu esse índice.")
+                continue
             estantes.add(e - 1)
+            i += 1
+            if i > _max:
+                break
       
-    def selecionar_quantidades(self, estantes: Iterable[int]):
+    def selecionar_quantidades(self, estantes: Iterable[int], error_prompt: str):
+        if not estantes:
+            raise Exception(error_prompt)
         relacoes: list[tuple[int, int]] = []
+        print(f'{blue}🛈{res} Insire a quantidade de livros em cada estante: ')
+        
         for e in estantes:
             relacoes.append((
                 e,
-                int(input(f"[*] Estante {e} > "))
+                int(input(f"Estante {e} > "))
             ))
         return relacoes
     
     def selecionar_estantes_e_quantidades(self, biblioteca: Biblioteca, estantes_validas: Optional[Iterable[int]]=None):
-        return self.selecionar_quantidades(self.selecionar_estantes(biblioteca, estantes_validas))
+        return self.selecionar_quantidades(
+            self.selecionar_estantes(biblioteca, estantes_validas),
+            error_prompt=f"Ainda não existem estantes na biblioteca {blue}{biblioteca.nome}{res}"
+        )
 
-    def selecionar_livro(self, universo: Iterable[Livro]):
-        for i, livro in enumerate(universo):
-            print(f"[{i + 1}] {livro.titulo} ({livro.autor.nome}")
-        print()
-        
+    def selecionar_livro(self, universo: Iterable[Livro], error_msg: str):
         universo = tuple(universo)
+        if len(universo) == 0:
+            raise Exception(error_msg)
+        print('\n---- Livros disponíveis ----')
+        for i, livro in enumerate(universo):
+            print(f"{i + 1}. {livro.titulo} {black}({livro.autor.nome}){res}")
+        print('----------------------------')
+        
         while True:
-            k = int(input("[*] Selecione o índice > "))
+            k = int(input("\nSelecione o índice do livro > "))
             if 0 < k <= len(universo):
                 return universo[k - 1]
-            print("[!] ÍNDICE INVÁLIDO\n")
+            print("[!] ÍNDICE INVÁLIDO")
     
     def interface(self):
-        print()
-        print('[1] Visitar biblioteca')
-        print('[2] Criar um livro')
-        print('[3] Fundar uma biblioteca')
-        print('[4] Gerenciar sua biblioteca')
-        print('[5] Encerrar')
+        print('\n==== INTERFACE ====')
         while True:
+            print('\n[1] Visitar biblioteca')
+            print('[2] Criar um livro')
+            print('[3] Fundar uma biblioteca')
+            print('[4] Gerenciar sua biblioteca')
+            print('[5] Encerrar')
             try:
                 match int(input('[*] O que deseja fazer? > ')):
                     case 1:
@@ -526,9 +582,9 @@ class UICompleto:
                     case _:
                         pass
             except KeyboardInterrupt:
-                print('\n[!] OPERAÇÃO CANCELADA\n')
+                print('\n[!] OPERAÇÃO CANCELADA')
             except Exception as e:
-                print(f'[ERROR] {e}\n')
+                print(f'[ERRO] {e}')
             
 def salvar_banco(filename: str):
     data = {
@@ -539,8 +595,3 @@ def salvar_banco(filename: str):
     
     with open(filename, "w") as file:
         json.dump(data, file, indent=4)
-
-def main():
-    UICompleto()
-
-main()
