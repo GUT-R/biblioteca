@@ -118,6 +118,12 @@ class Biblioteca:
             print(livro.titulo)
 
     @permitir_somente_usuario_autorizado
+    def adicionar_estantes(self, n: int):
+        for _ in range(n):
+            self.estantes.append({})
+        update(self)
+    
+    @permitir_somente_usuario_autorizado
     def adicionar_livro(self, livro: 'Livro', estantes_e_quantidade: Iterable[tuple[int, int]]):
         """Adiciona o livro em várias estantes. Para cada estante, a quantidade de livros deve ser específica.
         
@@ -280,7 +286,7 @@ class UICompleto:
     def __init__(self):
         print('\n==== REGISTRE-SE ====')
         nome = input('[*] Nome: ')
-        print('======== FIM :D =======')
+        print('=======================')
         self.auth_user = Usuario(nome)
         self.interface()
 
@@ -288,6 +294,7 @@ class UICompleto:
         print('\n==== CRIE UMA BIBILIOTECA ====')
 
         biblioteca = self.auth_user.cadastrar_biblioteca(input('[*] Nome da sua biblioteca: '))
+        biblioteca.adicionar_estantes(self.auth_user, int(input('[*] Quantas estantes sua biblioteca terá?')))
         query_name = {user.nome: user for user in database.usuarios.values()}
         if input('\nDeseja autorizar mais usuários a modificar sua biblioteca? [y/N]: ').strip()[:1].lower() == 'y':
             while True:
@@ -335,34 +342,23 @@ class UICompleto:
             print()
     
     def adicionar_livro_a_biblioteca(self, livro: Livro):
-        print('\n==== ADICIONAR LIVRO ====')
-        print('[+] SUAS BIBLIOTECAS: ')
-        
         bibliotecas_do_usuario = tuple(self.auth_user.bibliotecas | self.auth_user.bibliotecas_externas)
-        for i, biblioteca in enumerate(bibliotecas_do_usuario):
-            print(f'[{i + 1}]     {biblioteca.nome}')
-        print()
+        if len(bibliotecas_do_usuario) == 0:
+            print("[!] I'm sorry, mas você não possui e não é autorizado em nenhuma biblioteca.")
+            return None
+        biblioteca_selecionada = self.selecionar_biblioteca(bibliotecas_do_usuario)
 
-        while True:
-            n = int(input('[*] Insira o número da biblioteca > '))
-            if 0 < n <= len(bibliotecas_do_usuario):
-                break
-            print('[!] NÚMERO INVÁLIDO')
-        biblioteca_selecionada = bibliotecas_do_usuario[n - 1]
-
+        if len(biblioteca_selecionada.estantes) == 0:
+            print('[!] A biblioteca não possui estantes.')
+            if input('[*] Deseja adicionar por conta própria? [y/N]').strip()[:1].lower() == 'y':
+                biblioteca_selecionada.adicionar_estantes(self.auth_user, int(input('[*] Insira o novo número de estantes > ')))
+        
         print('\n==== ESTANTES ====')
         self.formatar_e_exibir_estantes(biblioteca_selecionada)
         print('====================')
 
         print('[?] Em quais estantes deseja adicionar quantos do seu livro?')
-
-        # map: separa cada relação estante/quantidade
-        # mapzinho (o filho dele): separa os dois elementos separados por espaço e converte para inteiro
-        K = map(
-            lambda s: tuple(map(int, s.split())),
-            input('[*] Insira os números (ex: 0 0,1 1, ...)\n> ').split(',')
-        )
-        biblioteca_selecionada.adicionar_livro(self.auth_user, livro, K) # type: ignore
+        biblioteca_selecionada.adicionar_livro(self.auth_user, livro, self.selecionar_estantes_e_quantidades(biblioteca_selecionada))
 
     def exibir_estantes_que_contem_livro(self, biblioteca: Biblioteca, livro: Livro):
         print("\n[•] O livro aparece nas seguintes estantes:")
@@ -373,6 +369,9 @@ class UICompleto:
                 print(f"[{i + 1}]", "/" * quantidade, f"({quantidade})")
     
     def selecionar_biblioteca(self, bibliotecas: Iterable[Biblioteca]):
+        if not bibliotecas:
+            raise Exception('[!] Não há bibliotecas')
+        
         print("[+] BIBLIOTECAS:")
         for i, biblioteca in enumerate(bibliotecas):
             print(f"[{i+1}]    {biblioteca.nome} (de {biblioteca.pertencente.nome})")
@@ -389,9 +388,8 @@ class UICompleto:
         return biblioteca
     
     def visitar_biblioteca(self):
-        print("\n==== VISITAR BIBLIOTECA ====")
         b = self.selecionar_biblioteca(database.bibliotecas.values())
-        
+        print("\n==== VISITAR BIBLIOTECA ====")
         print("[?] O quê deseja fazer?")
         print("[1] Listar livros")
         print("[2] Listar estantes")
@@ -506,28 +504,32 @@ class UICompleto:
             print("[!] ÍNDICE INVÁLIDO\n")
     
     def interface(self):
-        print("O que deseja fazer?")
-
+        print()
         print('[1] Visitar biblioteca')
         print('[2] Criar um livro')
         print('[3] Fundar uma biblioteca')
         print('[4] Gerenciar sua biblioteca')
         print('[5] Encerrar')
         while True:
-            match int(input('[*] Sua resposta > ')):
-                case 1:
-                    self.visitar_biblioteca()
-                case 2:
-                    self.criar_um_livro()
-                case 3:
-                    self.criar_uma_biblioteca()
-                case 4:
-                    self.gerenciar_biblioteca()
-                case 5:
-                    break
-                case _:
-                    pass
-
+            try:
+                match int(input('[*] O que deseja fazer? > ')):
+                    case 1:
+                        self.visitar_biblioteca()
+                    case 2:
+                        self.criar_um_livro()
+                    case 3:
+                        self.criar_uma_biblioteca()
+                    case 4:
+                        self.gerenciar_biblioteca()
+                    case 5:
+                        break
+                    case _:
+                        pass
+            except KeyboardInterrupt:
+                print('\n[!] OPERAÇÃO CANCELADA\n')
+            except Exception as e:
+                print(f'[ERROR] {e}\n')
+            
 def salvar_banco(filename: str):
     data = {
         "users": {id: user.para_json() for id, user in database.usuarios.items()},
