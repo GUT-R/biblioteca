@@ -32,6 +32,10 @@ class EmptyClass:
     def __init__(self):
         return None
 
+def update(method: Any):
+    if not getattr(method, '__nao_atualizar_data_de_atualizacao', False):
+        EmptyClass.__setattr__(method, 'data_de_atualizacao', agorinha())
+
 class Usuario:
     def __init__(self, nome: str):
         self.nome = nome
@@ -53,12 +57,14 @@ class Usuario:
 
         biblioteca = Biblioteca(nome=nome, pertencente=self)
         self.bibliotecas.add(biblioteca)
+        update(self)
         return biblioteca
 
     def cadastrar_livro(self, titulo: Titulo, conteudo: list[str]) -> 'Livro':
         """Cria um livro"""
         livro = Livro(titulo, conteudo, autor=self)
         self.livros.add(livro)
+        update(self)
         return livro
 
     def adicionar_livro_a_biblioteca(self, livro: 'Livro', biblioteca: 'Biblioteca', estantes: Iterable[tuple[int, int]]):
@@ -66,6 +72,7 @@ class Usuario:
 
     def modificar_livro(self, livro: 'Livro', pagina: int, conteudo: str):
         livro.alterar_pagina(self, pagina, conteudo)
+        
 
     def para_json(self) -> dict[str, Any]:
         return {
@@ -79,9 +86,7 @@ class Usuario:
         }
     def __setattr__(self: Any, name: str, value: Any):
         EmptyClass.__setattr__(self, name, value)
-        if self.__nao_atualizar_data_de_atualizacao:
-            return
-        EmptyClass.__setattr__(self, 'data_de_atualizacao', agorinha())
+        update(self)
 
 
 class Biblioteca:
@@ -105,6 +110,8 @@ class Biblioteca:
 
         database.bibliotecas[self.id] = self
         database.UNIQUES.biblioteca_nome.add(self.nome)
+
+        self.__nao_atualizar_data_de_atualizacao = False
         
     def mostrar_titulos(self):
         for livro in self.livros:
@@ -133,6 +140,7 @@ class Biblioteca:
                 estante[livro] += q
             else:
                 estante[livro] = q
+        update(self)
     
     @permitir_somente_usuario_autorizado
     def remover_livro(self, livro: 'Livro', estantes_e_quantidades: Iterable[tuple[int, int]]):
@@ -190,6 +198,7 @@ class Biblioteca:
         self.livros[livro] -= total_removido
         if self.livros[livro] < 0:
             self.livros.pop(livro)
+        update(self)
 
     
     @permitir_somente_usuario_autorizado
@@ -201,6 +210,7 @@ class Biblioteca:
         self.usuarios_autorizados.add(usuario)
         if self not in usuario.bibliotecas:
             usuario.bibliotecas_externas.add(self)
+        update(self)
     
     def para_json(self) -> dict[str, Any]:
         return {
@@ -216,8 +226,8 @@ class Biblioteca:
         }
     
     def __setattr__(self: Any, name: str, value: Any):
-        EmptyClass.__setattr__(self, name, value) 
-        EmptyClass.__setattr__(self, 'data_de_atualizacao', agorinha())
+        EmptyClass.__setattr__(self, name, value)
+        update(self)
 
 
 class Livro:
@@ -229,6 +239,7 @@ class Livro:
         self.usuarios_autorizados = {autor}
         self.data_de_criacao = agorinha()
         self.data_de_atualizacao = agorinha()
+        self.__nao_atualizar_data_de_atualizacao = False
 
         database.livros[self.id] = self
 
@@ -242,6 +253,7 @@ class Livro:
         if not usuario in self.usuarios_autorizados:
             raise PermissionError('Você não tem permissão para modificar esse livro')
         self.conteudo[pagina] = novo_conteudo
+        update(self)
 
     def alterar_titulo(self, usuario: Usuario, novo_titulo: str):
         if usuario is not self.autor:
@@ -261,7 +273,7 @@ class Livro:
 
     def __setattr__(self: Any, name: str, value: Any):
         EmptyClass.__setattr__(self, name, value)
-        EmptyClass.__setattr__(self, 'data_de_atualizacao', agorinha())
+        update(self)
 
 
 class UICompleto:
