@@ -5,7 +5,7 @@ from datetime import date
 from subprocess import run
 from typing import Iterable, Callable, Any, Concatenate, Optional
 
-
+DATABASE_NAME = "dados.json"
 class database:
     usuarios: dict[UsuarioID, Usuario]          = {}
     bibliotecas: dict[BibliotecaID, Biblioteca] = {}
@@ -450,7 +450,7 @@ class UICompleto:
                     break
                 case _:
                     pass
-        print(  "============================")
+        print( "============================")
         
     def gerenciar_biblioteca(self):
         b = self.selecionar_biblioteca(
@@ -561,7 +561,9 @@ class UICompleto:
     
     def interface(self):
         print('\n==== INTERFACE ====')
-        while True:
+        rodando = True
+        while rodando:
+            carregar_banco()
             print('\n[1] Visitar biblioteca')
             print('[2] Criar um livro')
             print('[3] Fundar uma biblioteca')
@@ -578,20 +580,40 @@ class UICompleto:
                     case 4:
                         self.gerenciar_biblioteca()
                     case 5:
-                        break
+                        rodando = False
                     case _:
                         pass
             except KeyboardInterrupt:
                 print('\n[!] OPERAÇÃO CANCELADA')
             except Exception as e:
                 print(f'[ERRO] {e}')
+            salvar_banco()
             
-def salvar_banco(filename: str):
+def salvar_banco():
     data = {
         "users": {id: user.para_json() for id, user in database.usuarios.items()},
         "libs": {id: lib.para_json() for id, lib in database.bibliotecas.items()},
         "books": {id: book.para_json() for id, book in database.livros.items()},
     }
     
-    with open(filename, "w") as file:
+    with open(DATABASE_NAME, "w") as file:
         json.dump(data, file, indent=4)
+
+def carregar_banco():
+    try:
+        with open(DATABASE_NAME, "r") as file:
+            data = json.load(file)
+    except FileNotFoundError:
+        return None
+    
+    for id, user in data["users"].items():
+        database.usuarios[id] = user
+        database.UNIQUES.usuarios_nome.add(user.nome)
+    
+    for id, lib in data["libs"].items():
+        database.bibliotecas[id] = lib
+        database.UNIQUES.biblioteca_nome.add(lib.nome)
+    
+    for id, book in data["books"].items():
+        database.livros[id] = book
+
