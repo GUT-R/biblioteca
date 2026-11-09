@@ -92,6 +92,19 @@ class Usuario:
             "data_de_criacao": self.data_de_criacao,
             "data_de_atualizacao": self.data_de_atualizacao,
         }
+    @staticmethod
+    def carregar_json(dados: dict[str, Any]):
+        u = Usuario('')
+        u.__nao_atualizar_data_de_atualizacao = True
+        u.nome = dados["nome"]
+        u.id = dados["id"]
+        u.livros = {database.livros[id] for id in dados["livros"]}
+        u.bibliotecas = {database.bibliotecas[id] for id in dados["bibliotecas"]}
+        u.bibliotecas_externas = {database.bibliotecas[id] for id in dados["bibliotecas_externas"]}
+        u.data_de_criacao = dados["data_de_criacao"]
+        u.data_de_atualizacao = dados["data_de_atualizacao"]
+        u.__nao_atualizar_data_de_atualizacao = False
+        return u
     def __setattr__(self: Any, name: str, value: Any):
         EmptyClass.__setattr__(self, name, value)
         update(self)
@@ -255,6 +268,21 @@ class Biblioteca:
             "data_de_atualizacao": self.data_de_atualizacao,
         }
     
+    @staticmethod
+    def carregar_json(dados: dict[str, Any]):
+        b = Biblioteca('', Usuario('')) # Uma biblioteca vazio com um usuário anômio
+        b.__nao_atualizar_data_de_atualizacao = True
+        b.nome = dados["nome"]
+        b.id = dados["id"]
+        b.livros = {database.livros[id]: q for id, q in dados["livros"].items()}
+        b.estantes = [{database.livros[id]: q for id, q in estante}
+                      for estante in dados["estante"]]
+        b.pertencente = database.usuarios[dados["pertencente"]]
+        b.usuarios_autorizados = {database.usuarios[id] for id in dados["usuarios_autorizados"]}
+        b.data_de_criacao = dados["data_de_criacao"]
+        b.data_de_atualizacao = dados["data_de_atualizacao"]
+        b.__nao_atualizar_data_de_atualizacao = False
+        return b
     def __setattr__(self: Any, name: str, value: Any):
         EmptyClass.__setattr__(self, name, value)
         update(self)
@@ -300,7 +328,19 @@ class Livro:
             "data_de_criacao": self.data_de_criacao,
             "data_de_atualizacao": self.data_de_atualizacao,
         }
-
+    @staticmethod
+    def carregar_json(dados: dict[str, Any]):
+        l = Livro('', [], Usuario('')) # Um livro sem titulo, sem conteudo e com autor anonimo
+        
+        l.__nao_atualizar_data_de_atualizacao = True
+        l.titulo = dados["titulo"]
+        l.id = dados["id"]
+        l.autor = database.usuarios[dados["autor"]]
+        l.usuarios_autorizados = {database.usuarios[id] for id in dados["usuarios_autorizados"]}
+        l.data_de_criacao = dados["data_de_criacao"]
+        l.data_de_atualizacao = dados["data_de_atualizacao"]
+        l.__nao_atualizar_data_de_atualizacao = False
+        return l
     def __setattr__(self: Any, name: str, value: Any):
         EmptyClass.__setattr__(self, name, value)
         update(self)
@@ -590,30 +630,33 @@ class UICompleto:
             salvar_banco()
             
 def salvar_banco():
-    data = {
+    dados = {
         "users": {id: user.para_json() for id, user in database.usuarios.items()},
         "libs": {id: lib.para_json() for id, lib in database.bibliotecas.items()},
         "books": {id: book.para_json() for id, book in database.livros.items()},
     }
     
     with open(DATABASE_NAME, "w") as file:
-        json.dump(data, file, indent=4)
+        json.dump(dados, file, indent=4)
 
 def carregar_banco():
     try:
         with open(DATABASE_NAME, "r") as file:
-            data = json.load(file)
+            dados = json.load(file)
     except FileNotFoundError:
         return None
     
-    for id, user in data["users"].items():
+    for id, user_data in dados["users"].items():
+        user = Usuario.carregar_json(user_data)
         database.usuarios[id] = user
         database.UNIQUES.usuarios_nome.add(user.nome)
     
-    for id, lib in data["libs"].items():
+    for id, lib_data in dados["libs"].items():
+        lib = Biblioteca.carregar_json(lib_data)
         database.bibliotecas[id] = lib
         database.UNIQUES.biblioteca_nome.add(lib.nome)
     
-    for id, book in data["books"].items():
+    for id, book_data in dados["books"].items():
+        book = Livro.carregar_json(book_data)
         database.livros[id] = book
 
