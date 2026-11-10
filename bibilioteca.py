@@ -33,7 +33,7 @@ black = '\033[90m'
 res = '\033[0m'
 
 def int_input(prompt: str):
-    """Só retorna o número quando o besta do usuário insere um inteiro válido"""
+    """Só retorna o número quando o usuário insere um inteiro válido"""
     while True:
         try:
             return int(input(prompt))
