@@ -32,9 +32,16 @@ blue = '\033[34m'
 black = '\033[90m'
 res = '\033[0m'
 
+def int_input(prompt: str):
+    """Só retorna o número quando o besta do usuário insere um inteiro válido"""
+    while True:
+        try:
+            return int(input(prompt))
+        except ValueError:
+            print(f"{red} Valor não é um inteiro válido{res}\n")
+
 def gerar_id() -> ID:
     return ''.join(choice(ascii_lowercase + digits) for _ in range(8))
-
 
 class EmptyClass:
     def __init__(self):
@@ -358,7 +365,7 @@ class UICompleto:
         print('\n==== CRIE UMA BIBILIOTECA ====')
 
         biblioteca = self.auth_user.cadastrar_biblioteca(input('Nome da sua biblioteca: '))
-        biblioteca.adicionar_estantes(self.auth_user, int(input('Quantas estantes sua biblioteca terá? > ')))
+        biblioteca.adicionar_estantes(self.auth_user, int_input('Quantas estantes sua biblioteca terá? > '))
 
         if len(database.usuarios) <= 1: # Só existe um usuário em todo o banco. Não faz sentido pedir para autorizar "outros"
             return None
@@ -423,7 +430,7 @@ class UICompleto:
             print(f'{blue}⚠{res} A biblioteca não possui estantes.')
             if input(f'Deseja adicionar por conta própria? {black}[y/N]{res}: ').strip()[:1].lower() == 'y':
                 biblioteca_selecionada.adicionar_estantes(
-                    self.auth_user, int(input('Insira o novo número de estantes > '))
+                    self.auth_user, int_input('Insira o novo número de estantes > ')
                 )
         self.formatar_e_exibir_estantes(biblioteca_selecionada)
 
@@ -451,7 +458,7 @@ class UICompleto:
         bibliotecas = tuple(bibliotecas)
         
         while True:
-            N = int(input("\nInsira o índice da biblioteca > "))
+            N = int_input("\nInsira o índice da biblioteca > ")
             if 0 < N <= len(bibliotecas):
                 break
             print(f"{red}⚠{res} Índice inválido")
@@ -470,7 +477,7 @@ class UICompleto:
             print("[2] Listar estantes")
             print("[3] Ler um livro")
             print("[4] Encerrar")
-            match int(input("Escolha > ")):
+            match int_input("Escolha > "):
                 case 1:
                     for livro, tot in b.livros.items():
                         print(f"[|] {livro.titulo} {black}por: {livro.autor.nome}{res} (total: {tot})")
@@ -504,7 +511,7 @@ class UICompleto:
             print("[3] Adicionar um livro")
             print('[4] Remover um livro')
             print('[5] Encerrar operação')
-            match int(input(f'Opção > ')):
+            match int_input(f"Opção > "):
                 case 1:
                     for livro in b.livros:
                         print(f'[|]    {livro.titulo} {black}({livro.autor.nome}){res}')
@@ -544,7 +551,7 @@ class UICompleto:
         i = 1
         print('\nInsira as estantes:', end='') # A linha já vai ser quebrada denovo no input. Não quero fazer duas quebras
         while True:
-            e = int(input(f"\nEstante {i}/{_max} (insira -1 para encerrar) > "))
+            e = int_input(f"\nEstante {i}/{_max} (insira -1 para encerrar) > ")
             if e <= -1:
                 if len(estantes) == 0:
                     print(f"{red}⚠{res} Você não inseriu nenhuma estante")
@@ -574,7 +581,7 @@ class UICompleto:
         for e in estantes:
             relacoes.append((
                 e,
-                int(input(f"Estante {e} > "))
+                int_input(f"Estante {e + 1} > ")
             ))
         return relacoes
     
@@ -594,7 +601,7 @@ class UICompleto:
         print('----------------------------')
         
         while True:
-            k = int(input("\nSelecione o índice do livro > "))
+            k = int_input("\nSelecione o índice do livro > ")
             if 0 < k <= len(universo):
                 return universo[k - 1]
             print("[!] ÍNDICE INVÁLIDO")
@@ -610,7 +617,7 @@ class UICompleto:
             print('[4] Gerenciar sua biblioteca')
             print('[5] Encerrar')
             try:
-                match int(input('[*] O que deseja fazer? > ')):
+                match int_input('[*] O que deseja fazer? > '):
                     case 1:
                         self.visitar_biblioteca()
                     case 2:
