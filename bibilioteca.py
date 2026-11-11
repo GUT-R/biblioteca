@@ -4,6 +4,7 @@ from string import ascii_lowercase, digits
 from datetime import date
 from subprocess import run
 from typing import Iterable, Callable, Any, Concatenate, Optional
+from advanced_ui import UI as ui
 
 DATABASE_NAME = "dados.json"
 class database:
@@ -370,20 +371,14 @@ class UICompleto:
         if len(database.usuarios) <= 1: # Só existe um usuário em todo o banco. Não faz sentido pedir para autorizar "outros"
             return None
         query_name = {user.nome: user for user in database.usuarios.values()}
-        if input(f'\nDeseja autorizar mais usuários a modificar sua biblioteca? {black}[y/N]{black}: ').strip()[:1].lower() == 'y':
-            while True:
-                nome = input('Nome: ').strip()
-                usuario = query_name.get(nome)
-
-                if usuario is None:
-                    print(f'{red}⚠{res} Usuário não existe.')
-                    continue
-
+        nomes = tuple(user.nome for user in database.usuarios.values())
+        
+        print("\nDeseja autorizar mais usuários a modificar sua biblioteca?")
+        if ui.confirmar():
+            nomes_selecionados = ui.radio_many(nomes) # Mostra todos os nomes de usuários disponíveis
+            for nome in nomes_selecionados:
+                usuario = query_name[nome]
                 biblioteca.autorizar_usuario(self.auth_user, usuario)
-
-                if input(f'Adicionar outro? {black}[y/N]{black}: ').strip()[:1].lower() != 'y':
-                    break
-                print()
 
     def criar_um_livro(self) -> Livro | None:
         # TODO: Implementar um editor de texto integrado tipo o vim
