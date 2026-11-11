@@ -384,8 +384,9 @@ class UICompleto:
         # TODO: Implementar um editor de texto integrado tipo o vim
         print('\n==== CRIAR LIVRO ====')
         print(f'{blue}[LOL] Ainda não fiz um editor de texto integrado.{res}')
-
-        if input(f'Deseja continuar com bloco de notas? {black}[y/N]{res}: ').strip()[:1].lower() != 'y':
+        
+        print(f'Deseja continuar com bloco de notas?')
+        if not ui.confirmar():
             return
         
         titulo = input('Titulo: ')
@@ -394,10 +395,10 @@ class UICompleto:
         run(rf'notepad.exe temp.txt')
         with open('temp.txt', 'r') as arquivo:
             paginas = arquivo.read().split('\n\n\n')
-
         livro = self.auth_user.cadastrar_livro(titulo, paginas)
         
-        if input(f'\nAdicionar livro a alguma biblioteca? {black}[y/N]{res}: ').strip()[:1].lower() == 'y':
+        print(f'\nAdicionar livro a alguma biblioteca?')
+        if ui.confirmar():
             self.adicionar_livro_a_biblioteca(livro)
         
         return livro
@@ -423,7 +424,8 @@ class UICompleto:
 
         if len(biblioteca_selecionada.estantes) == 0:
             print(f'{blue}⚠{res} A biblioteca não possui estantes.')
-            if input(f'Deseja adicionar por conta própria? {black}[y/N]{res}: ').strip()[:1].lower() == 'y':
+            print(f'Deseja adicionar por conta própria?')
+            if ui.confirmar():
                 biblioteca_selecionada.adicionar_estantes(
                     self.auth_user, int_input('Insira o novo número de estantes > ')
                 )
@@ -444,21 +446,13 @@ class UICompleto:
     def selecionar_biblioteca(self, bibliotecas: Iterable[Biblioteca], empty_msg: str="Não há bibliotecas"):
         if not bibliotecas:
             raise Exception(empty_msg)
-        
-        print("\n---- Bibliotecas ----")
-        for i, biblioteca in enumerate(bibliotecas):
-            print(f"{i+1}.    {biblioteca.nome}")
-        print("---------------------")
-        
         bibliotecas = tuple(bibliotecas)
         
-        while True:
-            N = int_input("\nInsira o índice da biblioteca > ")
-            if 0 < N <= len(bibliotecas):
-                break
-            print(f"{red}⚠{res} Índice inválido")
-
-        biblioteca = bibliotecas[N - 1]
+        N = ui.radio(
+            [biblioteca.nome for biblioteca in bibliotecas],
+            retornar_indice=True
+        )
+        biblioteca = bibliotecas[N]
         
         print(f'[>] Biblioteca selecionada: {blue}{biblioteca.nome}{res}')
         return biblioteca
@@ -468,11 +462,13 @@ class UICompleto:
         print("\n==== VISITAR BIBLIOTECA ====")
         while True:
             print("\nO quê deseja fazer?")
-            print("[1] Listar livros")
-            print("[2] Listar estantes")
-            print("[3] Ler um livro")
-            print("[4] Encerrar")
-            match int_input("Escolha > "):
+            r = ui.radio((
+                "[1] Listar livros",
+                "[2] Listar estantes",
+                "[3] Ler um livro",
+                "[4] Encerrar",
+            ), retornar_indice=True)
+            match r + 1:
                 case 1:
                     for livro, tot in b.livros.items():
                         print(f"[|] {livro.titulo} {black}por: {livro.autor.nome}{res} (total: {tot})")
@@ -501,12 +497,14 @@ class UICompleto:
         print("\n==== GERENCIAR BIBLIOTECA ====")
         while True:
             print(f'\nO que deseja fazer?')
-            print('[1] Listar livros')
-            print('[2] Listar estantes')
-            print("[3] Adicionar um livro")
-            print('[4] Remover um livro')
-            print('[5] Encerrar operação')
-            match int_input(f"Opção > "):
+            r = ui.radio((
+                "[1] Listar livros",
+                "[2] Listar estantes",
+                "[3] Adicionar um livro",
+                "[4] Remover um livro",
+                "[4] Encerrar operação",
+            ), retornar_indice=True)
+            match r:
                 case 1:
                     for livro in b.livros:
                         print(f'[|]    {livro.titulo} {black}({livro.autor.nome}){res}')
@@ -536,36 +534,17 @@ class UICompleto:
                     break
                 case _:
                     print(f'{red}⚠{res} Resposta inálida')
-        print(  '==============================')
+        print( '==============================')
     
-    def selecionar_estantes(self, biblioteca: Biblioteca, numeros_validos: Optional[Iterable[int]]=None, not_in_valid_numbers_msg: str=""):
-        estantes: set[int] = set()
-        estante_valida: Callable[[int], bool] = lambda x: 0 < x <= len(biblioteca.estantes)
-
-        _max = len(tuple(numeros_validos)) if numeros_validos is not None else len(biblioteca.estantes)
-        i = 1
-        print('\nInsira as estantes:', end='') # A linha já vai ser quebrada denovo no input. Não quero fazer duas quebras
-        while True:
-            e = int_input(f"\nEstante {i}/{_max} (insira -1 para encerrar) > ")
-            if e <= -1:
-                if len(estantes) == 0:
-                    print(f"{red}⚠{res} Você não inseriu nenhuma estante")
-                    continue
-                return estantes
-            if not estante_valida(e):
-                print(f"{red}⚠{res} Índice inválido.")
-                continue
+    def selecionar_estantes(self, biblioteca: Biblioteca, numeros_validos: Optional[Iterable[int]]=None):
+        opcoes: list[str] = []
+        for i, estante in enumerate(biblioteca.estantes):
             if numeros_validos:
-                if e not in numeros_validos:
-                    print(not_in_valid_numbers_msg)
+                if i not in numeros_validos:
                     continue
-            if e in estantes:
-                print(f"{red}⚠{res} Você já inseriu esse índice.")
-                continue
-            estantes.add(e - 1)
-            i += 1
-            if i > _max:
-                return estantes
+            livros = sum(estante.values())
+            opcoes.append('/' * livros + f" {black}({livros} livros){res}")
+        return ui.radio_many(opcoes, retornar_indices=True)
       
     def selecionar_quantidades(self, estantes: Iterable[int], error_prompt: str):
         if not estantes:
@@ -582,7 +561,7 @@ class UICompleto:
     
     def selecionar_estantes_e_quantidades(self, biblioteca: Biblioteca, estantes_validas: Optional[Iterable[int]]=None):
         return self.selecionar_quantidades(
-            self.selecionar_estantes(biblioteca, estantes_validas, not_in_valid_numbers_msg="Esse índice não foi listado"),
+            self.selecionar_estantes(biblioteca, estantes_validas),
             error_prompt=f"Ainda não existem estantes na biblioteca {blue}{biblioteca.nome}{res}"
         )
 
@@ -590,29 +569,26 @@ class UICompleto:
         universo = tuple(universo)
         if len(universo) == 0:
             raise Exception(error_msg)
-        print('\n---- Livros disponíveis ----')
+        opcoes: list[str] = []
         for i, livro in enumerate(universo):
-            print(f"{i + 1}. {livro.titulo} {black}({livro.autor.nome}){res}")
-        print('----------------------------')
+            opcoes.append(f"{i + 1}. {livro.titulo} {black}({livro.autor.nome}){res}")
         
-        while True:
-            k = int_input("\nSelecione o índice do livro > ")
-            if 0 < k <= len(universo):
-                return universo[k - 1]
-            print("[!] ÍNDICE INVÁLIDO")
+        return universo[ui.radio(opcoes, retornar_indice=True)]
     
     def interface(self):
         print('\n==== INTERFACE ====')
         rodando = True
         while rodando:
             carregar_banco()
-            print('\n[1] Visitar biblioteca')
-            print('[2] Criar um livro')
-            print('[3] Fundar uma biblioteca')
-            print('[4] Gerenciar sua biblioteca')
-            print('[5] Encerrar')
+            r = ui.radio((
+                "[1] Visitar uma biblioteca",
+                "[2] Criar um livro",
+                "[3] Criar uma biblioteda",
+                "[4] Gerenciar suas bibliotecas",
+                "[5] Encerrar operação",
+            ), retornar_indice=True)
             try:
-                match int_input('[*] O que deseja fazer? > '):
+                match r + 1:
                     case 1:
                         self.visitar_biblioteca()
                     case 2:
