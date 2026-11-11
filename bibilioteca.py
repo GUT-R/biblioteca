@@ -581,7 +581,7 @@ class UICompleto:
         for e in estantes:
             relacoes.append((
                 e,
-                int_input(f"Estante {e + 1} > ")
+                int_input(f"Estante {e + 1} > ") # Para o usuário, as estantes começam a ser contadas a partir do 1, mas internamente elas são contadas a partir do 0
             ))
         return relacoes
     

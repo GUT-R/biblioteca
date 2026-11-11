@@ -1,5 +1,5 @@
 import msvcrt_linux as msvcrt
-from typing import Sequence
+from typing import Literal, Sequence, overload
 from string import ascii_letters, digits, punctuation
 
 def read_keyboard():
@@ -38,9 +38,18 @@ def selecionar():
         print(f'\033[{up}A', end='')
 
 inputable = ascii_letters + digits + punctuation
+
 class UI:
+    @overload
     @staticmethod
-    def radio[T](elementos: Sequence[T]) -> T:
+    def radio[T](elementos: Sequence[T], retornar_indice: Literal[False]=False) -> T: ...
+
+    @overload
+    @staticmethod
+    def radio[T](elementos: Sequence[T], retornar_indice: Literal[True]) -> int: ...
+
+    @staticmethod
+    def radio[T](elementos: Sequence[T], retornar_indice: bool=False) -> T | int:
         height = len(elementos)
         
         focus = 0
@@ -55,9 +64,13 @@ class UI:
             if key == b'\xE0':
                 focus = max(0, min(focus + map_vertical_arrow(), height - 1))
             elif key == b'\r':
+                if retornar_indice:
+                    return focus
                 return elementos[focus]
             
             print(f"\033[{height}A", end='')
+        
+        
     
     # TODO: Implementar um input com sugestões
     @staticmethod
