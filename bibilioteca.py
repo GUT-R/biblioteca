@@ -1,7 +1,7 @@
 import json
 from random import choice
 from string import ascii_lowercase, digits
-from datetime import date
+from datetime import datetime
 from subprocess import run
 from typing import Iterable, Callable, Any, Concatenate, Optional
 
@@ -15,7 +15,7 @@ class database:
         usuarios_nome: set[str] = set()
         biblioteca_nome: set[str] = set()
 
-agorinha = date.today
+agorinha = datetime.now
 
 type Titulo = str
 type BibliotecaNome = str
@@ -96,8 +96,8 @@ class Usuario:
             "livros": [livro.id for livro in self.livros],
             "bibliotecas": [biblioteca.id for biblioteca in self.bibliotecas],
             "bibliotecas_externas": [biblioteca.id for biblioteca in self.bibliotecas_externas],
-            "data_de_criacao": self.data_de_criacao,
-            "data_de_atualizacao": self.data_de_atualizacao,
+            "data_de_criacao": self.data_de_criacao.strftime(r"%d/%m/%Y, %H:%M:%S"),
+            "data_de_atualizacao": self.data_de_atualizacao.strftime(r"%d/%m/%Y, %H:%M:%S"),
         }
     @staticmethod
     def carregar_json(dados: dict[str, Any]):
@@ -108,8 +108,8 @@ class Usuario:
         u.livros = {database.livros[id] for id in dados["livros"]}
         u.bibliotecas = {database.bibliotecas[id] for id in dados["bibliotecas"]}
         u.bibliotecas_externas = {database.bibliotecas[id] for id in dados["bibliotecas_externas"]}
-        u.data_de_criacao = dados["data_de_criacao"]
-        u.data_de_atualizacao = dados["data_de_atualizacao"]
+        u.data_de_criacao = datetime.strptime(dados["data_de_criacao"], r"%d/%m/%Y, %H:%M:%S")
+        u.data_de_atualizacao = datetime.strptime(dados["data_de_atualizacao"], r"%d/%m/%Y, %H:%M:%S")
         u.__nao_atualizar_data_de_atualizacao = False
         return u
     def __setattr__(self: Any, name: str, value: Any):
@@ -271,8 +271,8 @@ class Biblioteca:
                          for estante in self.estantes],
             "pertencente": self.pertencente.id,
             "usuarios_autorizados": [usuario.id for usuario in self.usuarios_autorizados],
-            "data_de_criacao": self.data_de_criacao,
-            "data_de_atualizacao": self.data_de_atualizacao,
+            "data_de_criacao": self.data_de_criacao.strftime(r"%d/%m/%Y, %H:%M:%S"),
+            "data_de_atualizacao": self.data_de_atualizacao.strftime(r"%d/%m/%Y, %H:%M:%S"),
         }
     
     @staticmethod
@@ -286,8 +286,8 @@ class Biblioteca:
                       for estante in dados["estante"]]
         b.pertencente = database.usuarios[dados["pertencente"]]
         b.usuarios_autorizados = {database.usuarios[id] for id in dados["usuarios_autorizados"]}
-        b.data_de_criacao = dados["data_de_criacao"]
-        b.data_de_atualizacao = dados["data_de_atualizacao"]
+        b.data_de_criacao = datetime.strptime(dados["data_de_criacao"], r"%d/%m/%Y, %H:%M:%S")
+        b.data_de_atualizacao = datetime.strptime(dados["data_de_atualizacao"], r"%d/%m/%Y, %H:%M:%S")
         b.__nao_atualizar_data_de_atualizacao = False
         return b
     def __setattr__(self: Any, name: str, value: Any):
@@ -332,8 +332,8 @@ class Livro:
             "conteudo": self.conteudo,
             "autor": self.autor.id,
             "usuarios_autorizados": [usuario.id for usuario in self.usuarios_autorizados],
-            "data_de_criacao": self.data_de_criacao,
-            "data_de_atualizacao": self.data_de_atualizacao,
+            "data_de_criacao": self.data_de_criacao.strftime(r"%d/%m/%Y, %H:%M:%S"),
+            "data_de_atualizacao": self.data_de_atualizacao.strftime(r"%d/%m/%Y, %H:%M:%S"),
         }
     @staticmethod
     def carregar_json(dados: dict[str, Any]):
@@ -344,8 +344,8 @@ class Livro:
         l.id = dados["id"]
         l.autor = database.usuarios[dados["autor"]]
         l.usuarios_autorizados = {database.usuarios[id] for id in dados["usuarios_autorizados"]}
-        l.data_de_criacao = dados["data_de_criacao"]
-        l.data_de_atualizacao = dados["data_de_atualizacao"]
+        l.data_de_criacao = datetime.strptime(dados["data_de_criacao"], r"%d/%m/%Y, %H:%M:%S")
+        l.data_de_atualizacao = datetime.strptime(dados["data_de_atualizacao"], r"%d/%m/%Y, %H:%M:%S")
         l.__nao_atualizar_data_de_atualizacao = False
         return l
     def __setattr__(self: Any, name: str, value: Any):
