@@ -1,2 +1,4 @@
 __pycache__/
 .venv/
+tempt.txt
+dados.json
