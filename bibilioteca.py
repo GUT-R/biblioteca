@@ -412,6 +412,8 @@ class UICompleto:
         match r:
             case "Registrar-se":
                 self.registrar_se()
+            case "Fazer login":
+                self.login()
             case _:
                 print("Ok, isso não deveria ter acontecido.")
                 return None
@@ -439,12 +441,13 @@ class UICompleto:
         print('\n==== ENTRAR ====')
         if len(database.usuarios) == 0:
             print("Não existem outros usuários no banco.")
-            print("Deseja registrar-se?")
             while True:
+                print("Deseja registrar-se?")
                 if ui.confirmar():
                     self.registrar_se()
+                    return
                 else:
-                    print("Você não tem outra escolha.")
+                    print("Você não tem outra escolha.\n")
                 
         while True:
             nome = input(f'{red}*{res} Seu nome: ')
