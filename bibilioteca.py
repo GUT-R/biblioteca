@@ -60,7 +60,7 @@ def fetch(id: ID, type: str) -> Usuario | Biblioteca | Livro:
             created = obj.carregar_json(json_finded) # Tanto Usuario, Biblioteca e Livro possuem o método `.carregar_json`. Por isso sempre funciona
 
             return created
-    raise KeyError('ID não identificado.')
+    raise KeyError(f'ID não identificado: {id}')
     
 
 def int_input(prompt: str):
@@ -83,9 +83,10 @@ def update(method: Any):
         EmptyClass.__setattr__(method, "data_de_atualizacao", agorinha())
 
 class Usuario:
-    def __init__(self, nome: str, salvar: bool=True):
-        self.nome = nome
+    def __init__(self, nome: str, senha: str, salvar: bool=True):
         self.id: UsuarioID = gerar_id()
+        self.nome = nome
+        self.senha = senha
         self.livros: set[Livro] = set()
         self.bibliotecas: set[Biblioteca] = set()
         self.bibliotecas_externas: set[Biblioteca] = set()
@@ -123,6 +124,7 @@ class Usuario:
         return {
             "id": self.id,
             "nome": self.nome,
+            "senha": self.senha,
             "livros": [livro.id for livro in self.livros],
             "bibliotecas": [biblioteca.id for biblioteca in self.bibliotecas],
             "bibliotecas_externas": [biblioteca.id for biblioteca in self.bibliotecas_externas],
@@ -135,10 +137,11 @@ class Usuario:
     
     @staticmethod
     def carregar_json(dados: dict[str, Any]):
-        u = Usuario('', salvar=False)
+        u = Usuario('', '', salvar=False)
         u.__nao_atualizar_data_de_atualizacao = True
-        u.nome = dados["nome"]
         u.id = dados["id"]
+        u.nome = dados["nome"]
+        u.senha = dados["senha"]
         u.livros = {fetch(id, "livros") for id in dados["livros"]}
         u.bibliotecas = {fetch(id, "bibliotecas") for id in dados["bibliotecas"]}
         u.bibliotecas_externas = {fetch(id, "bibliotecas") for id in dados["bibliotecas_externas"]}
@@ -314,14 +317,14 @@ class Biblioteca:
     
     @staticmethod
     def carregar_json(dados: dict[str, Any]):
-        b = Biblioteca('', Usuario('', salvar=False), salvar=False) # Uma biblioteca vazio com um usuário anômio
+        b = Biblioteca('', Usuario('', '', salvar=False), salvar=False) # Uma biblioteca vazio com um usuário anômio
         b.__nao_atualizar_data_de_atualizacao = True
         b.nome = dados["nome"]
         b.id = dados["id"]
         b.livros = {fetch(id, "livros"): q for id, q in dados["livros"].items()}
         b.estantes = [{fetch(id, "livros"): q for id, q in estante}
                       for estante in dados["estantes"]]
-        b.pertencente = database.usuarios[dados["pertencente"]]
+        b.pertencente = fetch(dados["pertencente"], "usuarios")
         b.usuarios_autorizados = {fetch(id, "usuarios") for id in dados["usuarios_autorizados"]}
         b.data_de_criacao = datetime.strptime(dados["data_de_criacao"], r"%d/%m/%Y, %H:%M:%S")
         b.data_de_atualizacao = datetime.strptime(dados["data_de_atualizacao"], r"%d/%m/%Y, %H:%M:%S")
@@ -379,7 +382,7 @@ class Livro:
         }
     @staticmethod
     def carregar_json(dados: dict[str, Any]):
-        l = Livro('', [], Usuario('', salvar=False), salvar=False) # Um livro sem titulo, sem conteudo e com autor anonimo
+        l = Livro('', [], Usuario('', '', salvar=False), salvar=False) # Um livro sem titulo, sem conteudo e com autor anonimo
         
         l.__nao_atualizar_data_de_atualizacao = True
         l.titulo = dados["titulo"]
@@ -399,17 +402,69 @@ class Livro:
 class UICompleto:
     def __init__(self):
         carregar_banco()
+        print("Seja bem vindo!")
+        r = ui.radio((
+            "Registrar-se",
+            "Fazer login",
+            # "Entrar como anônimo",
+        ))
+
+        match r:
+            case "Registrar-se":
+                self.registrar_se()
+            case _:
+                print("Ok, isso não deveria ter acontecido.")
+                return None
+
+        self.interface()
+    def registrar_se(self):
         print('\n==== REGISTRE-SE ====')
         while True:
             nome = input(f'{red}*{res} Seu nome: ')
             if nome not in database.UNIQUES.usuarios_nome:
                 break
-            print(f'{red}⚠{res} Já existe um usuário com esse nome.')
+            print(f'{red}⚠{res} Já existe um usuário com esse nome.\n')
         
-        self.auth_user = Usuario(nome)
+        while True:
+            senha = input(f'{red}*{res} Senha: ')
+            senha_confirma = input(f'{red}*{res} Confirmar senha: ')
+            if senha == senha_confirma:
+                break
+            print(f"{red}⚠{res} Senha diferentes.\n")
+        
+        self.auth_user = Usuario(nome, senha)
         print("=====================")
-        self.interface()
+    
+    def login(self):
+        print('\n==== ENTRAR ====')
+        if len(database.usuarios) == 0:
+            print("Não existem outros usuários no banco.")
+            print("Deseja registrar-se?")
+            while True:
+                if ui.confirmar():
+                    self.registrar_se()
+                else:
+                    print("Você não tem outra escolha.")
+                
+        while True:
+            nome = input(f'{red}*{res} Seu nome: ')
+            senha = input(f'{red}*{res} Senha: ')
+            print('procurando usuários correspondentes...')
 
+            usuario_encontrado = None
+            for usuario in database.usuarios.values():
+                if nome == usuario.nome:
+                    usuario_encontrado = usuario
+                    break
+            if usuario_encontrado is not None:
+                if usuario_encontrado.senha == senha:
+                    print(f'{green}Login concluido{res}')
+                    break
+            print(f"{red}⚠{res} Nome ou senha incorretos.\n")
+        
+        self.auth_user = Usuario(nome, senha)
+        print("=====================")
+    
     def criar_uma_biblioteca(self):
         print("\n==== CRIE UMA BIBILIOTECA ====")
 
@@ -685,11 +740,6 @@ def carregar_banco():
     if json_db is None:
         return None
     
-    database.usuarios = {}
-    database.bibliotecas = {}
-    database.livros = {}
-    database.UNIQUES.usuarios_nome = set()
-    database.UNIQUES.biblioteca_nome = set()
     for id in json_db["usuarios"]:
         fetch(id, type="usuarios")
     
