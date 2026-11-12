@@ -113,9 +113,10 @@ class UI:
             print(f"\033[{height}A", end='')
 
     @staticmethod
-    def confirmar() -> bool:
+    def confirmar(inverter: bool=False) -> bool:
         """O usuário precisa selecionar "Sim" ou "Não". Se selecionar Sim, a função retorna True. Se não, False"""
-        if UI.radio(('Sim', 'Não')) == 'Sim':
+        
+        if UI.radio(("Sim", "Não") if not inverter else ("Não", "Sim")) == 'Sim':
             return True
         return False
 

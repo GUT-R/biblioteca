@@ -1,2 +1,4 @@
-__pycache__/
+__pycache__
 .venv/
+dados.json
+temp.txt

@@ -3,11 +3,11 @@ from random import choice
 from string import ascii_lowercase, digits
 from datetime import datetime
 from subprocess import run
-from typing import Iterable, Callable, Any, Concatenate, Optional
+from typing import Iterable, Callable, Any, Concatenate, Optional, overload, Literal
 from advanced_ui import UI as ui
 
 DATABASE_NAME = "dados.json"
-JSON_DB: dict[str, dict[str, Any]] | None = None
+json_db: dict[str, dict[str, Any]] | None = None
 class database:
     usuarios: dict[UsuarioID, Usuario]          = {}
     bibliotecas: dict[BibliotecaID, Biblioteca] = {}
@@ -34,6 +34,13 @@ blue = '\033[34m'
 black = '\033[90m'
 res = '\033[0m'
 
+@overload
+def fetch(id: UsuarioID, type: Literal['usuarios']) -> Usuario: ...
+@overload
+def fetch(id: BibliotecaID, type: Literal['bibliotecas']) -> Biblioteca: ...
+@overload
+def fetch(id: LivroID, type: Literal['livros']) -> Livro: ...
+
 def fetch(id: ID, type: str) -> Usuario | Biblioteca | Livro:
     if type not in ("usuarios", "bibliotecas", "livros"):
         raise ValueError("Tipo inválido")
@@ -41,8 +48,9 @@ def fetch(id: ID, type: str) -> Usuario | Biblioteca | Livro:
     finded = getattr(database, type).get(id)
     if finded:
         return finded
-    if JSON_DB is not None:
-        json_finded = JSON_DB[type].get(id)
+
+    if json_db is not None:
+        json_finded = json_db[type].get(id)
         if json_finded:
             obj = {
                 "usuarios": Usuario,
@@ -131,9 +139,9 @@ class Usuario:
         u.__nao_atualizar_data_de_atualizacao = True
         u.nome = dados["nome"]
         u.id = dados["id"]
-        u.livros = {database.livros[id] for id in dados["livros"]}
-        u.bibliotecas = {database.bibliotecas[id] for id in dados["bibliotecas"]}
-        u.bibliotecas_externas = {database.bibliotecas[id] for id in dados["bibliotecas_externas"]}
+        u.livros = {fetch(id, "livros") for id in dados["livros"]}
+        u.bibliotecas = {fetch(id, "bibliotecas") for id in dados["bibliotecas"]}
+        u.bibliotecas_externas = {fetch(id, "bibliotecas") for id in dados["bibliotecas_externas"]}
         u.data_de_criacao = datetime.strptime(dados["data_de_criacao"], r"%d/%m/%Y, %H:%M:%S")
         u.data_de_atualizacao = datetime.strptime(dados["data_de_atualizacao"], r"%d/%m/%Y, %H:%M:%S")
         u.__nao_atualizar_data_de_atualizacao = False
@@ -310,11 +318,11 @@ class Biblioteca:
         b.__nao_atualizar_data_de_atualizacao = True
         b.nome = dados["nome"]
         b.id = dados["id"]
-        b.livros = {database.livros[id]: q for id, q in dados["livros"].items()}
-        b.estantes = [{database.livros[id]: q for id, q in estante}
+        b.livros = {fetch(id, "livros"): q for id, q in dados["livros"].items()}
+        b.estantes = [{fetch(id, "livros"): q for id, q in estante}
                       for estante in dados["estantes"]]
         b.pertencente = database.usuarios[dados["pertencente"]]
-        b.usuarios_autorizados = {database.usuarios[id] for id in dados["usuarios_autorizados"]}
+        b.usuarios_autorizados = {fetch(id, "usuarios") for id in dados["usuarios_autorizados"]}
         b.data_de_criacao = datetime.strptime(dados["data_de_criacao"], r"%d/%m/%Y, %H:%M:%S")
         b.data_de_atualizacao = datetime.strptime(dados["data_de_atualizacao"], r"%d/%m/%Y, %H:%M:%S")
         b.__nao_atualizar_data_de_atualizacao = False
@@ -376,8 +384,8 @@ class Livro:
         l.__nao_atualizar_data_de_atualizacao = True
         l.titulo = dados["titulo"]
         l.id = dados["id"]
-        l.autor = database.usuarios[dados["autor"]]
-        l.usuarios_autorizados = {database.usuarios[id] for id in dados["usuarios_autorizados"]}
+        l.autor = fetch(dados["autor"], "usuarios")
+        l.usuarios_autorizados = {fetch(id, "usuarios") for id in dados["usuarios_autorizados"]}
         l.data_de_criacao = datetime.strptime(dados["data_de_criacao"], r"%d/%m/%Y, %H:%M:%S")
         l.data_de_atualizacao = datetime.strptime(dados["data_de_atualizacao"], r"%d/%m/%Y, %H:%M:%S")
         l.__nao_atualizar_data_de_atualizacao = False
@@ -550,6 +558,7 @@ class UICompleto:
                 "Remover um livro",
                 "Encerrar operação",
             ), retornar_indice=True)
+            print()
             match r + 1:
                 case 1:
                     print()
@@ -567,13 +576,14 @@ class UICompleto:
                     self.formatar_e_exibir_estantes(b)
                     livro = self.selecionar_livro(b.livros.keys(), error_msg="A biblioteca selecionada ainda não possui livros.")
                     print(f'[>] "{blue}{livro.titulo}{res}" (por: {livro.autor.nome}) selecionado.')
-                    if input(f"Tem certeza que deseja remover esse livro? {black}[y/N]{res}: ").strip()[:1].lower() == 'y':
+                    print(f"Tem certeza que deseja remover esse livro?")
+                    if ui.confirmar(inverter=True):
                         self.exibir_estantes_que_contem_livro(b, livro)
                         b.remover_livro(
                             self.auth_user,
                             livro,
                             estantes_e_quantidades=self.selecionar_estantes_e_quantidades(
-                                b, estantes_validas=(i for i, estante in enumerate(b.estantes) if livro in estante)
+                                b, estantes_validas=( i for i, estante in enumerate(b.estantes) if (livro in estante) )
                             )
                         )
                 
@@ -666,23 +676,25 @@ def salvar_banco():
         json.dump(dados, file, indent=4)
 
 def carregar_banco():
-    global JSON_DB
+    global json_db
     try:
         with open(DATABASE_NAME, "r") as file:
-            dados = json.load(file)
+            json_db = json.load(file)
     except FileNotFoundError, json.decoder.JSONDecodeError:
         return None
-
+    if json_db is None:
+        return None
+    
     database.usuarios = {}
     database.bibliotecas = {}
     database.livros = {}
     database.UNIQUES.usuarios_nome = set()
     database.UNIQUES.biblioteca_nome = set()
-    for user_data in dados["users"].values():
-        Usuario.carregar_json(user_data)
+    for id in json_db["usuarios"]:
+        fetch(id, type="usuarios")
     
-    for lib_data in dados["libs"].values():
-        Biblioteca.carregar_json(lib_data)
+    for id in json_db["bibliotecas"]:
+        fetch(id, type="bibliotecas")
     
-    for book_data in dados["books"].values():
-        Livro.carregar_json(book_data)
+    for id in json_db["livros"]:
+        fetch(id, "livros")
