@@ -114,7 +114,10 @@ class UI:
 
     @staticmethod
     def confirmar(inverter: bool=False) -> bool:
-        """O usuário precisa selecionar "Sim" ou "Não". Se selecionar Sim, a função retorna True. Se não, False"""
+        """O usuário precisa selecionar "Sim" ou "Não". Se selecionar Sim, a função retorna True. Se não, False.
+
+        Ao definir o argumento `inverter` como True, o "Não" vira a primeira opção da escolha. Isso pode tornar o código menos problemático quando a confirmação é aplicada em uma ação sensível.
+        """
         
         if UI.radio(("Sim", "Não") if not inverter else ("Não", "Sim")) == 'Sim':
             return True
