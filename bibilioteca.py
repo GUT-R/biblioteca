@@ -390,10 +390,6 @@ class Livro:
 
 class UICompleto:
     def __init__(self):
-<<<<<<< HEAD
-        print("\n==== REGISTRE-SE ====")
-        nome = input(f"{red}*{res} Seu nome: ")
-=======
         carregar_banco()
         print('\n==== REGISTRE-SE ====')
         while True:
@@ -402,7 +398,6 @@ class UICompleto:
                 break
             print(f'{red}⚠{res} Já existe um usuário com esse nome.')
         
->>>>>>> e938c93bbf220c2ab22e076e66187996745902e9
         self.auth_user = Usuario(nome)
         print("=====================")
         self.interface()
@@ -430,18 +425,11 @@ class UICompleto:
 
     def criar_um_livro(self) -> Livro | None:
         # TODO: Implementar um editor de texto integrado tipo o vim
-<<<<<<< HEAD
-        print("\n==== CRIAR LIVRO ====")
-        print(f"{blue}[LOL] Ainda não fiz um editor de texto integrado.{res}")
-
-        if input(f"Deseja continuar com bloco de notas? {black}[y/N]{res}: ").strip()[:1].lower() != 'y':
-=======
         print('\n==== CRIAR LIVRO ====')
         print(f'{blue}[LOL] Ainda não fiz um editor de texto integrado.{res}')
         
         print(f'Deseja continuar com bloco de notas?')
         if not ui.confirmar():
->>>>>>> e938c93bbf220c2ab22e076e66187996745902e9
             return
         print()
         
@@ -454,12 +442,8 @@ class UICompleto:
         livro = self.auth_user.cadastrar_livro(titulo, paginas)
         print(f'{green}✓ Livro criado com sucesso.{res}')
         
-<<<<<<< HEAD
-        if input(f"\nAdicionar livro a alguma biblioteca? {black}[y/N]{res}: ").strip()[:1].lower() == 'y':
-=======
         print(f'\nAdicionar livro a alguma biblioteca?')
         if ui.confirmar():
->>>>>>> e938c93bbf220c2ab22e076e66187996745902e9
             self.adicionar_livro_a_biblioteca(livro)
         print()
         
@@ -485,14 +469,9 @@ class UICompleto:
         biblioteca_selecionada = self.selecionar_biblioteca(bibliotecas_do_usuario)
 
         if len(biblioteca_selecionada.estantes) == 0:
-<<<<<<< HEAD
-            print(f"{blue}⚠{res} A biblioteca não possui estantes.")
-            if input(f"Deseja adicionar por conta própria? {black}[y/N]{res}: ").strip()[:1].lower() == 'y':
-=======
             print(f'{blue}⚠{res} A biblioteca não possui estantes.')
             print(f'Deseja adicionar por conta própria?')
             if ui.confirmar():
->>>>>>> e938c93bbf220c2ab22e076e66187996745902e9
                 biblioteca_selecionada.adicionar_estantes(
                     self.auth_user, int_input("Insira o novo número de estantes > ")
                 )
@@ -563,15 +542,6 @@ class UICompleto:
         )
         print("\n==== GERENCIAR BIBLIOTECA ====")
         while True:
-<<<<<<< HEAD
-            print(f"\nO que deseja fazer?")
-            print("[1] Listar livros")
-            print("[2] Listar estantes")
-            print("[3] Adicionar um livro")
-            print("[4] Remover um livro")
-            print("[5] Encerrar operação")
-            match int_input(f"Opção > "):
-=======
             print(f'\nO que deseja fazer?')
             r = ui.radio((
                 "Listar livros",
@@ -581,20 +551,15 @@ class UICompleto:
                 "Encerrar operação",
             ), retornar_indice=True)
             match r + 1:
->>>>>>> e938c93bbf220c2ab22e076e66187996745902e9
                 case 1:
                     print()
                     for livro in b.livros:
-<<<<<<< HEAD
-                        print(f"[|]    {livro.titulo} {black}({livro.autor.nome}){res}")
-=======
                         print(f'|    {livro.titulo} {black}({livro.autor.nome}){res}')
->>>>>>> e938c93bbf220c2ab22e076e66187996745902e9
                 case 2:
                     self.formatar_e_exibir_estantes(b)
                 case 3:
                     livro = self.selecionar_livro(database.livros.values(), error_msg="Nenhum livro foi públicado no sistema.")
-                    print(f"[>] Livro "{blue}{livro.titulo}{res}" (por: {livro.autor.nome}) selecionado")
+                    print(f'[>] Livro "{blue}{livro.titulo}{res}" (por: {livro.autor.nome}) selecionado')
                     self.formatar_e_exibir_estantes(b)
                     estantes_e_quantidades = self.selecionar_estantes_e_quantidades(b)
                     b.adicionar_livro(self.auth_user, livro, estantes_e_quantidades)
@@ -615,35 +580,12 @@ class UICompleto:
                 case 5:
                     break
                 case _:
-<<<<<<< HEAD
-                    print(f"{red}⚠{res} Resposta inálida")
-        print(  "==============================")
-    
-    def selecionar_estantes(self, biblioteca: Biblioteca, numeros_validos: Optional[Iterable[int]]=None, not_in_valid_numbers_msg: str=""):
-        estantes: set[int] = set()
-        estante_valida: Callable[[int], bool] = lambda x: 0 < x <= len(biblioteca.estantes)
-
-        _max = len(tuple(numeros_validos)) if numeros_validos is not None else len(biblioteca.estantes)
-        i = 1
-        print("\nInsira as estantes:", end='') # A linha já vai ser quebrada denovo no input. Não quero fazer duas quebras
-        while True:
-            e = int_input(f"\nEstante {i}/{_max} (insira -1 para encerrar) > ")
-            if e <= -1:
-                if len(estantes) == 0:
-                    print(f"{red}⚠{res} Você não inseriu nenhuma estante")
-                    continue
-                return estantes
-            if not estante_valida(e):
-                print(f"{red}⚠{res} Índice inválido.")
-                continue
-=======
                     print(f'{red}⚠{res} Resposta inálida')
         print( '==============================')
     
     def selecionar_estantes(self, biblioteca: Biblioteca, numeros_validos: Optional[Iterable[int]]=None):
         opcoes: list[str] = []
         for i, estante in enumerate(biblioteca.estantes):
->>>>>>> e938c93bbf220c2ab22e076e66187996745902e9
             if numeros_validos:
                 if i not in numeros_validos:
                     continue
@@ -674,37 +616,17 @@ class UICompleto:
         universo = tuple(universo)
         if len(universo) == 0:
             raise Exception(error_msg)
-<<<<<<< HEAD
-        print("\n---- Livros disponíveis ----")
-        for i, livro in enumerate(universo):
-            print(f"{i + 1}. {livro.titulo} {black}({livro.autor.nome}){res}")
-        print("----------------------------")
-=======
         opcoes: list[str] = []
         for i, livro in enumerate(universo):
             opcoes.append(f"{i + 1}. {livro.titulo} {black}({livro.autor.nome}){res}")
->>>>>>> e938c93bbf220c2ab22e076e66187996745902e9
         
         return universo[ui.radio(opcoes, retornar_indice=True)]
     
     def interface(self):
-<<<<<<< HEAD
-        print("\n==== INTERFACE ====")
-=======
->>>>>>> e938c93bbf220c2ab22e076e66187996745902e9
         rodando = True
         while rodando:
             print('\n==== INTERFACE ====')
             carregar_banco()
-<<<<<<< HEAD
-            print("\n[1] Visitar biblioteca")
-            print("[2] Criar um livro")
-            print("[3] Fundar uma biblioteca")
-            print("[4] Gerenciar sua biblioteca")
-            print("[5] Encerrar")
-            try:
-                match int_input("[*] O que deseja fazer? > "):
-=======
             r = ui.radio((
                 "Visitar uma biblioteca",
                 "Criar um livro",
@@ -715,7 +637,6 @@ class UICompleto:
             print()
             try:
                 match r + 1:
->>>>>>> e938c93bbf220c2ab22e076e66187996745902e9
                     case 1:
                         self.visitar_biblioteca()
                     case 2:
@@ -748,29 +669,9 @@ def carregar_banco():
     global JSON_DB
     try:
         with open(DATABASE_NAME, "r") as file:
-<<<<<<< HEAD
-            JSON_DB = json.load(file)
-    except FileNotFoundError:
-        return None
-    if JSON_DB is None:
-        return None
-    
-    for id in JSON_DB["usuarios"]:
-        user = fetch(id, "usuarios")
-        database.UNIQUES.usuarios_nome.add(user.nome)
-    
-    for id in JSON_DB["bibliotecas"]:
-        lib = fetch(id, "bibliotecas")
-        database.UNIQUES.biblioteca_nome.add(lib.nome)
-    
-    for id in JSON_DB["livros"]:
-        book = fetch(id, "livros")
-        database.livros[id] = book
-=======
             dados = json.load(file)
     except FileNotFoundError, json.decoder.JSONDecodeError:
         return None
->>>>>>> e938c93bbf220c2ab22e076e66187996745902e9
 
     database.usuarios = {}
     database.bibliotecas = {}
