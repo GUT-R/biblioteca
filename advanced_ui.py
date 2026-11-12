@@ -1,4 +1,4 @@
-import msvcrt_linux as msvcrt
+import msvcrt as msvcrt
 from typing import Literal, Sequence, overload
 from string import ascii_letters, digits, punctuation
 
@@ -89,7 +89,7 @@ class UI:
         while True:
             for i, elemento in enumerate(elementos):
                 if i == focus:
-                    print(f'[•] \033[33m{elemento}\033[0m')
+                    print(f'[+] \033[33m{elemento}\033[0m')
                 elif i in marked_indexes:
                     print(f'[+] {elemento}')
                 else:
@@ -123,12 +123,3 @@ class UI:
     # TODO: Implementar um input com sugestões
     @staticmethod
     def search(prompt: str, suggestions: Sequence[str]) -> str: ...
-
-print(
-    "Item selecionado:", UI.radio([
-        "Arroz",
-        "Feijão",
-        "Farofa",
-        "Carne de porco",
-    ])
-)
