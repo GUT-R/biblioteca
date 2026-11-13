@@ -513,7 +513,10 @@ class UICompleto:
         for nome in nomes_selecionados:
             usuario = query_name[nome]
             if usuario not in biblioteca.usuarios_autorizados:
-                biblioteca.autorizar_usuario(self.auth_user, usuario)    
+                if len(database.usuarios) > 1:
+                    biblioteca.autorizar_usuario(self.auth_user, usuario)
+                else:
+                    raise Exception(f"{red}⚠{res} Ainda não há outros usuários registrados no sistema.")    
             else:
                 biblioteca.usuarios_autorizados.remove(usuario)
         
@@ -728,7 +731,6 @@ class UICompleto:
         rodando = True
         while rodando:
             print('\n==== INTERFACE ====')
-            carregar_banco()
             r = ui.radio((
                 "Visitar uma biblioteca",
                 "Criar um livro",
@@ -737,6 +739,7 @@ class UICompleto:
                 "Encerrar operação",
             ), retornar_indice=True)
             print()
+            carregar_banco()
             try:
                 match r + 1:
                     case 1:
@@ -774,6 +777,7 @@ def carregar_banco():
             json_db = json.load(file)
     except FileNotFoundError, json.decoder.JSONDecodeError:
         return None
+    
     if json_db is None:
         return None
     

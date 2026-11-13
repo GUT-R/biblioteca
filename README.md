@@ -80,11 +80,10 @@ The main menu provides the following operations:
 - The interactive input implementation depends on Windows' `msvcrt`; the presence of `msvcrt_linux.py` does not yet provide automatic cross-platform support.
 - Book creation and reading launch `notepad.exe`, so those workflows are Windows-specific.
 - The integrated text editor and the search-with-suggestions function are not implemented yet.
-- The current branch contains a syntax issue in `carregar_banco()`: the exception clause should use a tuple, for example `except (FileNotFoundError, json.decoder.JSONDecodeError):`. Fix this before running `main.py`; otherwise Python cannot import the module.
 
 ## Contributing
 
-Issues and pull requests are welcome. When contributing, please keep the domain model, persistence logic, and terminal interface clearly separated, and document platform-specific behavior.
+Issues and pull requests are welcome!
 
 ## License
 

@@ -1,4 +1,4 @@
-import msvcrt as msvcrt
+import msvcrt_linux as msvcrt
 from typing import Literal, Sequence, overload
 from string import ascii_letters, digits, punctuation
 
