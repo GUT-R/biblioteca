@@ -142,13 +142,14 @@ class Usuario:
         u.id = dados["id"]
         u.nome = dados["nome"]
         u.senha = dados["senha"]
+        u.data_de_criacao = datetime.strptime(dados["data_de_criacao"], r"%d/%m/%Y, %H:%M:%S")
+        u.data_de_atualizacao = datetime.strptime(dados["data_de_atualizacao"], r"%d/%m/%Y, %H:%M:%S")
+        u.salvar()
+
         u.livros = {fetch(id, "livros") for id in dados["livros"]}
         u.bibliotecas = {fetch(id, "bibliotecas") for id in dados["bibliotecas"]}
         u.bibliotecas_externas = {fetch(id, "bibliotecas") for id in dados["bibliotecas_externas"]}
-        u.data_de_criacao = datetime.strptime(dados["data_de_criacao"], r"%d/%m/%Y, %H:%M:%S")
-        u.data_de_atualizacao = datetime.strptime(dados["data_de_atualizacao"], r"%d/%m/%Y, %H:%M:%S")
         u.__nao_atualizar_data_de_atualizacao = False
-        u.salvar()
         return u
     def __setattr__(self: Any, name: str, value: Any):
         EmptyClass.__setattr__(self, name, value)
@@ -301,6 +302,7 @@ class Biblioteca:
 
     def salvar(self):
         database.bibliotecas[self.id] = self
+        database.UNIQUES.biblioteca_nome.add(self.nome)
     
     def para_json(self) -> dict[str, Any]:
         return {
@@ -318,18 +320,25 @@ class Biblioteca:
     @staticmethod
     def carregar_json(dados: dict[str, Any]):
         b = Biblioteca('', Usuario('', '', salvar=False), salvar=False) # Uma biblioteca vazio com um usuário anômio
+        
         b.__nao_atualizar_data_de_atualizacao = True
-        b.nome = dados["nome"]
+        
         b.id = dados["id"]
-        b.livros = {fetch(id, "livros"): q for id, q in dados["livros"].items()}
-        b.estantes = [{fetch(id, "livros"): q for id, q in estante}
-                      for estante in dados["estantes"]]
-        b.pertencente = fetch(dados["pertencente"], "usuarios")
-        b.usuarios_autorizados = {fetch(id, "usuarios") for id in dados["usuarios_autorizados"]}
+        b.nome = dados["nome"]
+
         b.data_de_criacao = datetime.strptime(dados["data_de_criacao"], r"%d/%m/%Y, %H:%M:%S")
         b.data_de_atualizacao = datetime.strptime(dados["data_de_atualizacao"], r"%d/%m/%Y, %H:%M:%S")
-        b.__nao_atualizar_data_de_atualizacao = False
+        
         b.salvar()
+
+        b.pertencente = fetch(dados["pertencente"], "usuarios")
+        b.livros = {fetch(id, "livros"): q for id, q in dados["livros"].items()}
+        b.estantes = [{fetch(id, "livros"): q for id, q in estante.items()}
+                      for estante in dados["estantes"]]
+        b.usuarios_autorizados = {fetch(id, "usuarios") for id in dados["usuarios_autorizados"]}
+        
+        b.__nao_atualizar_data_de_atualizacao = False
+        
         return b
     def __setattr__(self: Any, name: str, value: Any):
         EmptyClass.__setattr__(self, name, value)
@@ -385,14 +394,21 @@ class Livro:
         l = Livro('', [], Usuario('', '', salvar=False), salvar=False) # Um livro sem titulo, sem conteudo e com autor anonimo
         
         l.__nao_atualizar_data_de_atualizacao = True
-        l.titulo = dados["titulo"]
+
         l.id = dados["id"]
-        l.autor = fetch(dados["autor"], "usuarios")
-        l.usuarios_autorizados = {fetch(id, "usuarios") for id in dados["usuarios_autorizados"]}
+        l.titulo = dados["titulo"]
+        l.conteudo = dados["conteudo"]
+        
         l.data_de_criacao = datetime.strptime(dados["data_de_criacao"], r"%d/%m/%Y, %H:%M:%S")
         l.data_de_atualizacao = datetime.strptime(dados["data_de_atualizacao"], r"%d/%m/%Y, %H:%M:%S")
-        l.__nao_atualizar_data_de_atualizacao = False
+        
         l.salvar()
+
+        l.autor = fetch(dados["autor"], "usuarios")
+        l.usuarios_autorizados = {fetch(id, "usuarios") for id in dados["usuarios_autorizados"]}
+        
+        l.__nao_atualizar_data_de_atualizacao = False
+        
         return l
     def __setattr__(self: Any, name: str, value: Any):
         EmptyClass.__setattr__(self, name, value)
@@ -452,7 +468,6 @@ class UICompleto:
         while True:
             nome = input(f'{red}*{res} Seu nome: ')
             senha = input(f'{red}*{res} Senha: ')
-            print('procurando usuários correspondentes...')
 
             usuario_encontrado = None
             for usuario in database.usuarios.values():
@@ -465,9 +480,9 @@ class UICompleto:
                     break
             print(f"{red}⚠{res} Nome ou senha incorretos.\n")
         
-        self.auth_user = Usuario(nome, senha)
+        self.auth_user = usuario_encontrado
         print("=====================")
-    
+
     def criar_uma_biblioteca(self):
         print("\n==== CRIE UMA BIBILIOTECA ====")
 
@@ -476,19 +491,31 @@ class UICompleto:
 
         if len(database.usuarios) <= 1: # Só existe um usuário em todo o banco. Não faz sentido pedir para autorizar "outros"
             return None
-        query_name = {user.nome: user for user in database.usuarios.values()}
-        nomes = tuple(database.UNIQUES.usuarios_nome)
+        
         print(f'{green}✓ Biblioteca criada com sucesso.{res}')
 
         print("\nDeseja autorizar mais usuários a modificar sua biblioteca?")
         if ui.confirmar():
-            print()
-            nomes_selecionados = ui.radio_many(nomes) # Mostra todos os nomes de usuários disponíveis
-            print()
-            for nome in nomes_selecionados:
-                usuario = query_name[nome]
-                biblioteca.autorizar_usuario(self.auth_user, usuario)               
-
+            self.autorizar_usuarios_biblioteca(biblioteca)
+                   
+    def autorizar_usuarios_biblioteca(self, biblioteca: Biblioteca):
+        query_name = {user.nome: user for user in database.usuarios.values()}
+        
+        nomes = database.UNIQUES.usuarios_nome.copy() # Eu vou remover só o nome usuário autenticado. Não quero mecher no banco, por isso faço uma cópia
+        nomes.remove(self.auth_user.nome)
+        nomes = tuple(nomes) # Não dá pra acessar uma set com índice inteiro. Mas com tupla dá
+        
+        print()
+        nomes_selecionados = ui.radio_many(nomes) # Mostra todos os nomes de usuários disponíveis
+        print()
+        
+        for nome in nomes_selecionados:
+            usuario = query_name[nome]
+            if usuario not in biblioteca.usuarios_autorizados:
+                biblioteca.autorizar_usuario(self.auth_user, usuario)    
+            else:
+                biblioteca.usuarios_autorizados.remove(usuario)
+        
     def criar_um_livro(self) -> Livro | None:
         # TODO: Implementar um editor de texto integrado tipo o vim
         print('\n==== CRIAR LIVRO ====')
@@ -614,6 +641,7 @@ class UICompleto:
                 "Listar estantes",
                 "Adicionar um livro",
                 "Remover um livro",
+                "Autorizar outros usuários",
                 "Encerrar operação",
             ), retornar_indice=True)
             print()
@@ -646,6 +674,8 @@ class UICompleto:
                         )
                 
                 case 5:
+                    self.autorizar_usuarios_biblioteca(b)
+                case 6:
                     break
                 case _:
                     print(f'{red}⚠{res} Resposta inálida')

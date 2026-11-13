@@ -88,7 +88,10 @@ class UI:
         marked_indexes: list[int] = []
         while True:
             for i, elemento in enumerate(elementos):
-                if i == focus:
+
+                if i == focus and i in marked_indexes:
+                    print(f'[-] \033[33m{elemento}\033[0m')
+                elif i == focus:
                     print(f'[+] \033[33m{elemento}\033[0m')
                 elif i in marked_indexes:
                     print(f'[+] {elemento}')
