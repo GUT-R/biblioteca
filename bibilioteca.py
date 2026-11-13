@@ -451,6 +451,7 @@ class UICompleto:
             print(f"{red}⚠{res} Senha diferentes.\n")
         
         self.auth_user = Usuario(nome, senha)
+        salvar_banco()
         print("=====================")
     
     def login(self):
@@ -674,7 +675,10 @@ class UICompleto:
                         )
                 
                 case 5:
-                    self.autorizar_usuarios_biblioteca(b)
+                    if self.auth_user == b.pertencente:
+                        self.autorizar_usuarios_biblioteca(b)
+                    else:
+                        print(f"{red}⚠{res} Somente o pertencente da biblioteca pode realizar está ação")
                 case 6:
                     break
                 case _:
