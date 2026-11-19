@@ -430,25 +430,32 @@ class UICompleto:
                 self.registrar_se()
             case "Fazer login":
                 self.login()
-            case _:
-                print("Ok, isso não deveria ter acontecido.")
-                return None
 
         self.interface()
     def registrar_se(self):
         print('\n==== REGISTRE-SE ====')
-        while True:
-            nome = input(f'{red}*{res} Seu nome: ')
-            if nome not in database.UNIQUES.usuarios_nome:
-                break
-            print(f'{red}⚠{res} Já existe um usuário com esse nome.\n')
-        
-        while True:
-            senha = input(f'{red}*{res} Senha: ')
-            senha_confirma = input(f'{red}*{res} Confirmar senha: ')
-            if senha == senha_confirma:
-                break
-            print(f"{red}⚠{res} Senha diferentes.\n")
+        try:
+            while True:
+                nome = input(f'{red}*{res} Seu nome: ')
+                if nome not in database.UNIQUES.usuarios_nome:
+                    break
+                print(f'{red}⚠{res} Já existe um usuário com esse nome.\n')
+            
+            while True:
+                senha = input(f'{red}*{res} Senha: ')
+                senha_confirma = input(f'{red}*{res} Confirmar senha: ')
+                if senha == senha_confirma:
+                    break
+                print(f"{red}⚠{res} Senha diferentes.\n")
+        except KeyboardInterrupt:
+            print("\nVocê cancelou a operação. Deseja continuar?")
+            match ui.radio(("Sim", "Entrar")):
+                case "Sim":
+                    self.registrar_se() # Não estamos mais em um loop. O `continue` não funciona. A forma mais simples é reiniciando a função.
+                    return
+                case "Entrar":
+                    self.login()
+                    return
         
         self.auth_user = Usuario(nome, senha)
         salvar_banco()
@@ -467,9 +474,18 @@ class UICompleto:
                     print("Você não tem outra escolha.\n")
                 
         while True:
-            nome = input(f'{red}*{res} Seu nome: ')
-            senha = input(f'{red}*{res} Senha: ')
-
+            try:
+                nome = input(f'{red}*{res} Seu nome: ')
+                senha = input(f'{red}*{res} Senha: ')
+            except KeyboardInterrupt:
+                print("\nVocê cancelou a operação. Deseja continuar?")
+                match ui.radio(("Sim", "Registrar-se")):
+                    case "Registrar-se":
+                        self.registrar_se()
+                        return
+                    case "Sim":
+                        continue
+            
             usuario_encontrado = None
             for usuario in database.usuarios.values():
                 if nome == usuario.nome:
@@ -480,6 +496,7 @@ class UICompleto:
                     print(f'{green}Login concluido{res}')
                     break
             print(f"{red}⚠{res} Nome ou senha incorretos.\n")
+            print("Deseja continuar?")
         
         self.auth_user = usuario_encontrado
         print("=====================")
@@ -500,23 +517,13 @@ class UICompleto:
             self.autorizar_usuarios_biblioteca(biblioteca)
                    
     def autorizar_usuarios_biblioteca(self, biblioteca: Biblioteca):
-        query_name = {user.nome: user for user in database.usuarios.values()}
-        
-        nomes = database.UNIQUES.usuarios_nome.copy() # Eu vou remover só o nome usuário autenticado. Não quero mecher no banco, por isso faço uma cópia
-        nomes.remove(self.auth_user.nome)
-        nomes = tuple(nomes) # Não dá pra acessar uma set com índice inteiro. Mas com tupla dá
-        
         print()
-        nomes_selecionados = ui.radio_many(nomes) # Mostra todos os nomes de usuários disponíveis
+        usuarios_selecionados = ui.radio_many({usuario.nome: usuario for usuario in database.usuarios.values() if usuario is not self.auth_user})
         print()
         
-        for nome in nomes_selecionados:
-            usuario = query_name[nome]
+        for usuario in usuarios_selecionados:
             if usuario not in biblioteca.usuarios_autorizados:
-                if len(database.usuarios) > 1:
-                    biblioteca.autorizar_usuario(self.auth_user, usuario)
-                else:
-                    raise Exception(f"{red}⚠{res} Ainda não há outros usuários registrados no sistema.")    
+                biblioteca.autorizar_usuario(self.auth_user, usuario)
             else:
                 biblioteca.usuarios_autorizados.remove(usuario)
         
@@ -589,13 +596,10 @@ class UICompleto:
     def selecionar_biblioteca(self, bibliotecas: Iterable[Biblioteca], empty_msg: str="Não há bibliotecas"):
         if not bibliotecas:
             raise Exception(empty_msg)
-        bibliotecas = tuple(bibliotecas)
         
-        N = ui.radio(
-            [biblioteca.nome for biblioteca in bibliotecas],
-            retornar_indice=True
+        biblioteca = ui.radio(
+            {biblioteca.nome: biblioteca for biblioteca in bibliotecas},
         )
-        biblioteca = bibliotecas[N]
         
         print(f"[>] Biblioteca selecionada: {blue}{biblioteca.nome}{res}")
         return biblioteca

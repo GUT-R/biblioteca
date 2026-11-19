@@ -48,22 +48,25 @@ def selecionar():
 
 inputable = ascii_letters + digits + punctuation
 
+type configurado[T] = tuple[T, bool] # Isso vai ser usado no método radio_many
+type valor_configuravel[T] = T | configurado[T] # Isso aqui também
+
 class UI:
     @overload
     @staticmethod
-    def radio[T](elementos: Sequence[str], retornar_indice: Literal[False]=False) -> str: ...
-
-    @overload
-    @staticmethod
-    def radio[T](elementos: dict[str, T], retornar_indice: Literal[False]) -> T: ...
+    def radio[T](elementos: Sequence[T] | dict[str, T], retornar_indice: Literal[True]) -> int: ...
     
     @overload
     @staticmethod
-    def radio[T](elementos: Sequence[str] | dict[str, T], retornar_indice: Literal[True]) -> int: ...
+    def radio[T](elementos: Sequence[T], retornar_indice: Literal[False]=False) -> T: ...
     
 
+    @overload
     @staticmethod
-    def radio[T](elementos: Sequence[str] | dict[str, T], retornar_indice: bool=False) -> str | T | int:
+    def radio[T](elementos: dict[str, T], retornar_indice: Literal[False]=False) -> T: ...
+    
+    @staticmethod
+    def radio[T](elementos: Sequence[T] | dict[str, T], retornar_indice: bool=False) -> T | int:
         """Garante que o usuário vai selecionar apenas um elemento."""
         height = len(elementos)
         if height == 0:
@@ -92,30 +95,34 @@ class UI:
                 return elementos[focus]
             
             print(f"\033[{height}A", end='')
-    
-    @overload
-    @staticmethod
-    def radio_many[T](elementos: Sequence[str], retornar_indices: Literal[False]=False) -> list[str]: ...
 
     @overload
     @staticmethod
-    def radio_many[T](elementos: Sequence[str] | dict[str, T], retornar_indices: Literal[True]) -> list[int]: ...
+    def radio_many[T](elementos: Sequence[valor_configuravel[T]], retornar_indices: Literal[False]=False) -> list[T]: ...
 
     @overload
     @staticmethod
-    def radio_many[T](elementos: dict[str, T], retornar_indices: Literal[False]=False) -> list[T]: ...
+    def radio_many[T](elementos: Sequence[valor_configuravel[T]] | dict[str, valor_configuravel[T]], retornar_indices: Literal[True]) -> list[int]: ...
+
+    @overload
+    @staticmethod
+    def radio_many[T](elementos: dict[str, valor_configuravel[T]], retornar_indices: Literal[False]=False) -> list[T]: ...
 
     @staticmethod
-    def radio_many[T](elementos: Sequence[str] | dict[str, T], retornar_indices: bool=False) -> list[str] | list[T] | list[int]:
+    def radio_many[T](elementos: Sequence[valor_configuravel[T]] | dict[str, valor_configuravel[T]], retornar_indices: bool=False) -> list[T] | list[int]:
         """Permite o usuário marcar e selecionar vários elementos. Para selecionar: Espaço; Para confirmar a operação: Enter."""
         height = len(elementos)
         focus = 0
-        marked_indexes: list[int] = []
+        marked_indexes: list[int] = [
+            i for i, v in enumerate(
+                elementos.values() if isinstance(elementos, dict) else elementos
+            ) if (v[1] if isinstance(v, tuple) else False)
+        ]
 
-        values = tuple[T, ...]()
-        if isinstance(elementos, dict):
-            values = tuple(elementos.values())
-
+        values = tuple[T](
+            (e[0] if isinstance(e, tuple) else e) for e in (elementos.values() if isinstance(elementos, dict) else elementos) # type: ignore # obs: type ignore porque até o Pyright ficou confuso sobre o tipo de `e` e marcou como Unknowm 
+        )
+        
         while True:
             for i, elemento in enumerate(elementos):
                 if i == focus:
@@ -139,10 +146,7 @@ class UI:
             elif key == b'\r': # Enter
                 if retornar_indices:
                     return marked_indexes
-                
-                if isinstance(elementos, dict):
-                    return [values[marked_i] for marked_i in marked_indexes]
-                return [elementos[marked_i] for marked_i in marked_indexes]
+                return [values[marked_i] for marked_i in marked_indexes]
             
             print(f"\033[{height}A", end='')
 
