@@ -518,14 +518,14 @@ class UICompleto:
                    
     def autorizar_usuarios_biblioteca(self, biblioteca: Biblioteca):
         print()
-        usuarios_selecionados = ui.radio_many({usuario.nome: usuario for usuario in database.usuarios.values() if usuario is not self.auth_user})
+        usuarios_selecionados = ui.radio_many({
+            usuario.nome: (usuario, usuario in biblioteca.usuarios_autorizados) for usuario in database.usuarios.values()
+              if usuario is not self.auth_user
+        })
         print()
-        
+        biblioteca.usuarios_autorizados = {biblioteca.pertencente}
         for usuario in usuarios_selecionados:
-            if usuario not in biblioteca.usuarios_autorizados:
-                biblioteca.autorizar_usuario(self.auth_user, usuario)
-            else:
-                biblioteca.usuarios_autorizados.remove(usuario)
+            biblioteca.autorizar_usuario(self.auth_user, usuario)
         
     def criar_um_livro(self) -> Livro | None:
         # TODO: Implementar um editor de texto integrado tipo o vim
