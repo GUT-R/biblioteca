@@ -1,4 +1,8 @@
-import msvcrt_linux as msvcrt
+import os
+if os.name == "nt":
+    import msvcrt
+else:
+    import msvcrt_linux as msvcrt
 from typing import Literal, Sequence, overload, Optional
 from string import ascii_letters, digits, punctuation
 
@@ -47,18 +51,29 @@ inputable = ascii_letters + digits + punctuation
 class UI:
     @overload
     @staticmethod
-    def radio[T](elementos: Sequence[T], retornar_indice: Literal[False]=False) -> T: ...
+    def radio[T](elementos: Sequence[str], retornar_indice: Literal[False]=False) -> str: ...
 
     @overload
     @staticmethod
-    def radio[T](elementos: Sequence[T], retornar_indice: Literal[True]) -> int: ...
+    def radio[T](elementos: dict[str, T], retornar_indice: Literal[False]) -> T: ...
+    
+    @overload
+    @staticmethod
+    def radio[T](elementos: Sequence[str] | dict[str, T], retornar_indice: Literal[True]) -> int: ...
+    
 
     @staticmethod
-    def radio[T](elementos: Sequence[T], retornar_indice: bool=False) -> T | int:
+    def radio[T](elementos: Sequence[str] | dict[str, T], retornar_indice: bool=False) -> str | T | int:
         """Garante que o usuário vai selecionar apenas um elemento."""
         height = len(elementos)
+        if height == 0:
+            raise Exception("Não é possível abrir o menu sem uma sequência de elementos. O recomendado é pelo menos 2")
         
         focus = 0
+        values = tuple[T, ...]()
+        if isinstance(elementos, dict):
+            values = tuple(elementos.values())
+        
         while True:
             for i, elemento in enumerate(elementos):
                 if i == focus:
@@ -72,32 +87,42 @@ class UI:
             elif key == b'\r':
                 if retornar_indice:
                     return focus
+                if isinstance(elementos, dict):
+                    return values[focus] # Extrai o elemento a partir do label extraido com a posição
                 return elementos[focus]
             
             print(f"\033[{height}A", end='')
     
     @overload
     @staticmethod
-    def radio_many[T](elementos: Sequence[T], retornar_indices: Literal[False]=False) -> list[T]: ...
+    def radio_many[T](elementos: Sequence[str], retornar_indices: Literal[False]=False) -> list[str]: ...
 
     @overload
     @staticmethod
-    def radio_many[T](elementos: Sequence[T], retornar_indices: Literal[True]) -> list[int]: ...
+    def radio_many[T](elementos: Sequence[str] | dict[str, T], retornar_indices: Literal[True]) -> list[int]: ...
+
+    @overload
+    @staticmethod
+    def radio_many[T](elementos: dict[str, T], retornar_indices: Literal[False]=False) -> list[T]: ...
 
     @staticmethod
-    def radio_many[T](elementos: Sequence[T], retornar_indices: bool=False) -> list[T] | list[int]:
+    def radio_many[T](elementos: Sequence[str] | dict[str, T], retornar_indices: bool=False) -> list[str] | list[T] | list[int]:
         """Permite o usuário marcar e selecionar vários elementos. Para selecionar: Espaço; Para confirmar a operação: Enter."""
         height = len(elementos)
         focus = 0
-        marked: list[T] = []
         marked_indexes: list[int] = []
+
+        values = tuple[T, ...]()
+        if isinstance(elementos, dict):
+            values = tuple(elementos.values())
+
         while True:
             for i, elemento in enumerate(elementos):
-
-                if i == focus and i in marked_indexes:
-                    print(f'[-] \033[33m{elemento}\033[0m')
-                elif i == focus:
-                    print(f'[+] \033[33m{elemento}\033[0m')
+                if i == focus:
+                    if i in marked_indexes:
+                        print(f'[-] \033[33m{elemento}\033[0m')
+                    else:
+                        print(f'[+] \033[33m{elemento}\033[0m')
                 elif i in marked_indexes:
                     print(f'[+] {elemento}')
                 else:
@@ -109,14 +134,15 @@ class UI:
             elif key == b'\x20': # Espaço
                 if focus in marked_indexes:
                     marked_indexes.remove(focus)
-                    marked.remove(elementos[focus])
                 else:
                     marked_indexes.append(focus)
-                    marked.append(elementos[focus])
             elif key == b'\r': # Enter
                 if retornar_indices:
                     return marked_indexes
-                return marked
+                
+                if isinstance(elementos, dict):
+                    return [values[marked_i] for marked_i in marked_indexes]
+                return [elementos[marked_i] for marked_i in marked_indexes]
             
             print(f"\033[{height}A", end='')
 
